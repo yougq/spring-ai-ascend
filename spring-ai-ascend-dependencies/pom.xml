@@ -57,12 +57,7 @@
 
       <dependency>
         <groupId>ascend.springai</groupId>
-        <artifactId>agent-platform</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>ascend.springai</groupId>
-        <artifactId>agent-runtime</artifactId>
+        <artifactId>agent-service</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

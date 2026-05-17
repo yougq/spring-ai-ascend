@@ -1,0 +1,20 @@
+# Module metadata for agent-service.
+# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
+# Authority: ADR-0078 (agent-service consolidation), ADR-0066 (Independent Module Evolution).
+# Enforced by gate rule module_metadata_present_and_complete.
+
+module: agent-service
+kind: domain
+version: 0.1.0-SNAPSHOT
+semver_compatibility: 0.x
+description: "Combined HTTP edge + cognitive runtime kernel. Sub-package layering: service.platform owns HTTP/JWT/idempotency/tenant; service.runtime owns orchestration SPI + Run lifecycle + reference executors. Consolidated from agent-platform + agent-runtime per ADR-0078."
+architecture_doc: agent-service/ARCHITECTURE.md
+dfx_doc: docs/dfx/agent-service.yaml
+spi_packages:
+  - ascend.springai.service.runtime.orchestration.spi
+  - ascend.springai.service.runtime.memory.spi
+  - ascend.springai.service.runtime.s2c.spi
+allowed_dependencies:
+  - agent-middleware
+forbidden_dependencies: []
+deployment_plane: compute_control
