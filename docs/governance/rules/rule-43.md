@@ -9,7 +9,7 @@ enforcer_refs: [E74, E76]
 status: active
 kernel_cap: 8
 kernel: |
-  **Every Run dispatch MUST go through `EngineRegistry.resolve(envelope)` (or the convenience `resolveByPayload(def)`). Pattern-matching on `ExecutorDefinition` subtypes outside `ascend.springai.runtime.engine.EngineRegistry` is forbidden. The envelope schema `docs/contracts/engine-envelope.v1.yaml` is the single source of truth for engine metadata; the `EngineEnvelope` Java record mirrors the schema and validates required fields (nullability, blanks) on construction. `known_engines` membership is enforced by `EngineRegistry.resolve(...)` and registry boot validation (Phase 5 R2 pilot — enforcer E84); constructor-level membership validation is deferred to Rule 48.c.**
+  **Every Run dispatch MUST go through `EngineRegistry.resolve(envelope)` (or the convenience `resolveByPayload(def)`). Pattern-matching on `ExecutorDefinition` subtypes outside `ascend.springai.service.runtime.engine.EngineRegistry` is forbidden. The envelope schema `docs/contracts/engine-envelope.v1.yaml` is the single source of truth for engine metadata; the `EngineEnvelope` Java record mirrors the schema and validates required fields (nullability, blanks) on construction. `known_engines` membership is enforced by `EngineRegistry.resolve(...)` and registry boot validation (Phase 5 R2 pilot — enforcer E84); constructor-level membership validation is deferred to Rule 48.c.**
 ---
 
 ## Motivation

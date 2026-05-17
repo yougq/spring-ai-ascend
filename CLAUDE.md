@@ -187,14 +187,14 @@ Enforced by [`rule-36.md`](docs/governance/rules/rule-36.md).
 ---
 #### Rule 37 — Reactive External I/O
 
-**No production class under `agent-service/src/main/java/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**
+**No production class under `agent-service/src/main/java/ascend/springai/service/runtime/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**
 
 Enforced by [`rule-37.md`](docs/governance/rules/rule-37.md).
 
 ---
 #### Rule 38 — No Thread.sleep in Business Code
 
-**No production class under `agent-service/src/main/java/**` or `agent-service/src/main/java/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
+**No production class under `agent-service/src/main/java/ascend/springai/service/platform/**` or `agent-service/src/main/java/ascend/springai/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
 
 Enforced by [`rule-38.md`](docs/governance/rules/rule-38.md).
 

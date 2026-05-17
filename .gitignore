@@ -93,3 +93,4 @@ gate/log/local/
 # Gate run logs (per-run NDJSON; gitignored per token-optimization wave PR-E1)
 gate/log/runs/
 gate/log/latest
+.commit-msg-tmp

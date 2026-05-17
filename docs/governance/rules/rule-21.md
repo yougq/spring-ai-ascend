@@ -9,7 +9,7 @@ enforcer_refs: [E2]
 status: active
 kernel_cap: 8
 kernel: |
-  **No production class under `ascend.springai.runtime..` (main sources) may import any class under `ascend.springai.platform..`. The original narrow case — no import of `TenantContextHolder` — remains the specific instance most likely to be violated and is asserted independently as defence-in-depth.**
+  **No production class under `ascend.springai.service.runtime..` (main sources) may import any class under `ascend.springai.service.platform..`. The original narrow case — no import of `TenantContextHolder` — remains the specific instance most likely to be violated and is asserted independently as defence-in-depth.**
 ---
 
 ## Motivation
@@ -23,6 +23,6 @@ Enforced by `RuntimeMustNotDependOnPlatformTest` (ArchUnit — broad, L1 contrac
 ## Cross-references
 
 - ADR-0023 — original Rule 21 (narrow `TenantContextHolder` ban).
-- ADR-0055 — L1 generalisation to the whole `ascend.springai.platform..` package.
+- ADR-0055 — L1 generalisation to the whole `ascend.springai.service.platform..` package.
 - Architecture reference: §4 #22.
 - Rule 6 (Single Construction Path Per Resource Class) — tenant scope as a required constructor argument is the structural enforcement complement.
