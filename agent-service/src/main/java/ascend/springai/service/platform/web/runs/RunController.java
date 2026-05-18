@@ -7,6 +7,9 @@ import ascend.springai.service.runtime.runs.Run;
 import ascend.springai.service.runtime.runs.RunMode;
 import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -118,6 +121,7 @@ public class RunController {
     }
 
     @GetMapping(value = "/{runId}", produces = "application/json")
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = RunResponse.class)))
     public ResponseEntity<?> get(@PathVariable String runId) {
         UUID id = parseUuidOr400(runId);
         if (id == null) {
@@ -135,6 +139,7 @@ public class RunController {
     }
 
     @PostMapping(value = "/{runId}/cancel", produces = "application/json")
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = RunResponse.class)))
     public ResponseEntity<?> cancel(@PathVariable String runId) {
         UUID id = parseUuidOr400(runId);
         if (id == null) {
