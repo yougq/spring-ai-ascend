@@ -1195,3 +1195,35 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_96_kernel_cites_pos
   asserts: "Positive + negative self-test fixtures for Rule 96. Positive: synthetic CLAUDE.md Rule N kernel containing the literal `Rule N.b` reference matches the CLAUDE-deferred.md Rule N.b sub-clause → pass. Negative: synthetic CLAUDE.md Rule N kernel WITHOUT the `Rule N.b` reference → fail."
+
+- id: E135
+  constraint_ref: "CLAUDE.md Rule 97 (release_note_numeric_truth); rc10 category-sweep I-α-2; ADR-0084"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#release_note_numeric_truth
+  asserts: "The LATEST release note under docs/releases/*.md (lex-sort tail -1) MUST NOT contain an absolute `<N> nodes` or `<M> edges` prose claim disagreeing with the live values in docs/governance/architecture-graph.yaml#node_count + #edge_count, unless the line carries a historical/rc[N] snapshot/rc[N] correction/rc[N] first cut/superseded marker within ±3 lines. Delta-formatted claims (`+N nodes / +M edges`) are exempt. Closes rc10 I-α-2: rc9 first cut declared 360 nodes / 510 edges while live header was 369 / 520 — no rule caught the prose drift because Rule 91 only checked architecture-status.yaml#baseline_metrics.active_gate_checks."
+
+- id: E136
+  constraint_ref: "CLAUDE.md Rule 97 (release_note_numeric_truth); ADR-0084"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_97_release_note_numeric_pos
+  asserts: "Positive + negative self-test fixtures for Rule 97. Positive: synthetic latest release note with `369 nodes / 520 edges` matching live values → pass. Negative: synthetic latest release note with `360 nodes / 510 edges` and no historical/correction marker → fail. Also positive: same wrong values BUT with `rc10 correction` marker within ±3 lines → pass."
+
+- id: E137
+  constraint_ref: "CLAUDE.md Rule 98 (broad_corpus_deleted_module_name_truth); rc10 category-sweep I-ε family; ADR-0078; ADR-0084"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#broad_corpus_deleted_module_name_truth
+  asserts: "Widens Rule 94 file-discovery scope to ops/**/*.{yaml,yml,tpl}, docs/contracts/*.yaml, **/module-metadata.yaml (excluding archive). Same word-boundary regex (`agent-platform` or `agent-runtime` not -core), same exemption-marker set (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, formerly, superseded, ADR-NNNN, forbidden_dependencies, etc.) within ±3 lines. Closes rc10 I-ε family hidden defects: Helm chart files (values.yaml, deployment.yaml, Chart.yaml), live OpenAPI contract owner, BoM module-metadata.yaml description — all carried pre-Phase-C names but were outside Rule 94's narrow ARCHITECTURE.md + rule-card + test-Javadoc scope."
+
+- id: E138
+  constraint_ref: "CLAUDE.md Rule 98 (broad_corpus_deleted_module_name_truth); ADR-0084"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_98_broad_corpus_pos
+  asserts: "Positive + negative self-test fixtures for Rule 98. Positive: synthetic ops/helm/test.yaml with `agent-service` reference → pass. Negative: synthetic ops/helm/test.yaml with bare `agent-platform` reference → fail. Also positive: same `agent-platform` reference but with `pre-Phase-C` marker on adjacent line → pass."

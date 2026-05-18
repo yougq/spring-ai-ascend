@@ -175,3 +175,95 @@ The first green CI run on `main` since rc1 is the evidence backing the rc9 relea
 - `docs/releases/2026-05-19-l0-rc9-corrective.en.md` — rc9 release note.
 - `docs/governance/rule-history.md` — appends Rules 91-96 lifecycle entries.
 - `docs/reviews/2026-05-18-l0-rc8-post-corrective-architecture-review.en.md` — the review this document responds to.
+
+---
+
+# Appendix A — Category-Sweep Follow-Up (rc10 / 2026-05-19)
+
+> **Context**: After rc9 closed all 8 cited findings of the rc8 post-corrective architecture review at their specific surfaces (and CI went green on `main` for the first time since rc1), the user requested a **category-driven re-audit**: group the 8 findings into mechanistic defect families, then sweep each family across the current post-rc9 corpus for hidden defects rc9's prevention rules missed. This appendix documents the rc10 wave that the re-audit produced.
+
+## Family taxonomy
+
+The 8 rc8-cited findings group into 7 mechanistic defect families (I-α … I-η). After running 3 parallel sweeps (Explore agents) + a direct grep audit, **two families** yielded hidden defects rc9's prevention rules missed: **I-α (numeric drift)** and **I-ε (deleted-module-name leakage)**.
+
+| Family | Mechanism | rc9 prevention rule | rc10 hidden defects |
+|---|---|---|---|
+| I-α | Numeric-claim drift (declared prose ≠ live source) | Rule 91 (only `active_gate_checks`) | 2 hidden (`enforcer_rows` 116 vs 134; rc9 release note 360 nodes / 510 edges) |
+| I-β | Orphan authority | Rule 93 + STATE.md archive | Clean (BOM exempt per Rule 78) |
+| I-γ | Active kernel overclaims deferred | Rule 96 + Rule 42/46 narrowing | Clean (spot-audit aligns) |
+| I-δ | One-direction contract completeness | Rule 95 | Clean (12 SPI rows verified) |
+| I-ε | Deleted-module name leakage | Rule 94 (narrow scope) | 7-8 hidden (Helm chart triplet, OpenAPI live + pinned, BoM module-metadata, ops/compose.yml) |
+| I-ζ | Multiple authorities disagree | Rule 89 narrowed | Clean (sampled Rules 1-10, 33-48, 80-96) |
+| I-η | Shadow corpus described as durable | Rule 92 + orchestrator.sh fix | Clean |
+
+## Hidden defects closed in rc10
+
+### I-α-1 — enforcer_rows declared 116, live count 134 (delta +18)
+
+`docs/governance/architecture-status.yaml:102` declared `enforcer_rows: 116` per the rc9 narrative "rc8 baseline 104 + rc9 wave +12: E123-E134". The live `^- id: E[0-9]+` count in `docs/governance/enforcers.yaml` was actually **134** — an undeclared +18 had accreted across rc7/rc8/rc9 CI defect closure waves. Rule 91 (rc9) narrowly only checked `active_gate_checks`, so the drift was invisible.
+
+**Fix**: update the field to 134 (then to 138 after E135-E138 added in this wave); **strengthen Rule 91 in-place** to additionally enforce `enforcer_rows` against the live `^- id: E[0-9]+` count.
+
+### I-α-2 — rc9 release note declared 360 nodes / 510 edges, actual 369 / 520
+
+`docs/releases/2026-05-19-l0-rc9-corrective.en.md:33` and `:87` declared "360 nodes / 510 edges" with delta "+12 nodes / +24 edges". The live `architecture-graph.yaml#node_count` and `#edge_count` were **369 / 520**, with delta from rc8 baseline (348 / 486) of **+21 / +34**. Both the absolute count AND the delta arithmetic were wrong at rc9 release-note write time. Rule 82 (`baseline_metric_matches_executable_manifest`) doesn't enumerate "nodes" or "edges" in its canonical-key list, so no rule caught the prose drift.
+
+**Fix**: correct both lines in the rc9 release note in place with inline `[rc10 correction: rc9 first cut declared 360 / 510 / +12 / +24]` markers; **add Rule 97 (`release_note_numeric_truth`)** to enforce that the LATEST release note's absolute node/edge claims match live `architecture-graph.yaml` values.
+
+### I-ε family — 7-8 deleted-module-name leaks Rule 94 missed
+
+Rule 94's implementation (`gate/check_architecture_sync.sh:4527-4534`) only scanned **three** surfaces: root `ARCHITECTURE.md`, `docs/governance/rules/*.md` (one-level), and `agent-*/src/test/java/**/*{Test,IT}.java`. The rule body **claimed** "every active `.md`, `.yaml`, and `*.java` file" but explicitly exempted `docs/contracts/openapi-v1.yaml`, `*/src/test/resources/*`, all `docs/adr/*`, and several `docs/` subtrees. The `ops/` directory was NEITHER in the exemption list NOR in the file-discovery scope — Rule 94 silently never scanned it. This **kernel-vs-implementation drift** was itself an undiscovered defect.
+
+The category sweep found 7 hidden leaks Rule 94 missed (plus 1 surfaced by Rule 98 self-validation):
+
+| # | File:Line | Leak |
+|---|---|---|
+| I-ε-1 | `spring-ai-ascend-dependencies/module-metadata.yaml:9` | BoM description: "pins agent-platform, agent-runtime, ..." |
+| I-ε-2 | `ops/helm/spring-ai-ascend/values.yaml:7` | `repository: springaiascend/agent-platform` |
+| I-ε-3 | `ops/helm/spring-ai-ascend/templates/deployment.yaml:18` | container `- name: agent-platform` |
+| I-ε-4 | `ops/helm/spring-ai-ascend/Chart.yaml:3,9` | description + keyword |
+| I-ε-5 | `docs/contracts/openapi-v1.yaml:287` | `x-contract-owner: agent-platform` |
+| I-ε-6 | `docs/contracts/openapi-v1.yaml:294` | W1 note: "Integration test: agent-platform RunCursorFlowIT..." |
+| I-ε-7 | `agent-service/src/test/resources/contracts/openapi-v1-pinned.yaml:265` | mirrored live `x-contract-owner` |
+| I-ε-8 | `ops/compose.yml:1,26` | dev-compose service name (surfaced by Rule 98 self-validation) |
+
+**Fix**: replace `agent-platform` → `agent-service` (and `agent-runtime` → `agent-runtime-core` / post-Phase-C equivalent) in each surface, carrying `post-Phase-C / ADR-0078` markers. **Add Rule 98 (`broad_corpus_deleted_module_name_truth`)** as a sibling to Rule 94 with widened file-discovery scope (`ops/**/*.{yaml,yml,tpl}`, `docs/contracts/*.yaml`, `**/module-metadata.yaml`).
+
+## New prevention gate rules
+
+| # | Slug | Enforcers | Closes |
+|---|---|---|---|
+| 91 (strengthened) | `baseline_metric_matches_executable_manifest` + `enforcer_rows` sub-check | E123, E124 | I-α-1 |
+| 97 | `release_note_numeric_truth` | E135, E136 | I-α-2 |
+| 98 | `broad_corpus_deleted_module_name_truth` | E137, E138 | I-ε family |
+
+## Updated baseline counts (rc10)
+
+| Metric | rc9 | rc10 |
+|---|---|---|
+| Active engineering rules | 51 | 53 (+2) |
+| Active gate rules | 108 | 110 (+2) |
+| Self-tests | 161 | 165 (+4) |
+| Enforcer rows | 116 (declared) / 134 (live) | 138 (live = declared after reconciliation) |
+| ADRs | 83 | 84 (+ADR-0084) |
+| Architecture graph nodes | 369 | 376 (+7) |
+| Architecture graph edges | 520 | 535 (+15) |
+
+## Verification
+
+```bash
+bash gate/check_architecture_sync.sh        # GATE: PASS (Linux/WSL canonical per Rule 74)
+bash gate/check_parallel.sh                 # parallel_summary: executed 110 rules
+bash gate/test_architecture_sync_gate.sh    # Tests passed: 165/165
+python gate/build_architecture_graph.py     # 376 nodes / 535 edges; idempotent
+./mvnw -B -ntp verify                       # 371 tests GREEN (CI Linux + Docker)
+```
+
+## Appendix cross-references
+
+- ADR-0084 — authoritative record of the rc10 wave decisions.
+- `docs/releases/2026-05-19-l0-rc10-corrective.en.md` — rc10 release note.
+- `docs/releases/2026-05-19-l0-rc9-corrective.en.md` — rc9 release note (now carries `Historical artifact frozen at SHA 0fb9576` marker + inline `rc10 correction` markers on lines 33 + 87).
+- Rule 91 card: `docs/governance/rules/rule-91.md` (strengthened with enforcer_rows sub-check per ADR-0084).
+- Rule 97 card (NEW): `docs/governance/rules/rule-97.md`.
+- Rule 98 card (NEW): `docs/governance/rules/rule-98.md`.

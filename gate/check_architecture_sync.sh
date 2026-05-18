@@ -4367,17 +4367,28 @@ if [[ $_r89_fail -eq 0 ]]; then pass_rule "self_test_harness_fail_closed_coverag
 _r91_fail=0
 _r91_status_file="docs/governance/architecture-status.yaml"
 _r91_canonical="gate/check_architecture_sync.sh"
+_r91_enforcers="docs/governance/enforcers.yaml"
 if [[ ! -f "$_r91_status_file" ]] || [[ ! -f "$_r91_canonical" ]]; then
   fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file or $_r91_canonical missing — Rule 91 / E123"
   _r91_fail=1
 else
   _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
   _r91_declared=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
+  # rc10 widening per ADR-0084 / I-α-1 closure: extend Rule 91 to cover baseline_metrics.enforcer_rows.
+  # Closes rc10 hidden defect: rc9 declared enforcer_rows: 116 (104 baseline + 12 wave) but live count was 134.
+  _r91_enforcer_actual=$(grep -cE '^- id: E[0-9]+' "$_r91_enforcers" 2>/dev/null || echo 0)
+  _r91_enforcer_declared=$(grep -E '^[[:space:]]*enforcer_rows:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*enforcer_rows:[[:space:]]*([0-9]+).*/\1/')
   if [[ -z "$_r91_declared" ]]; then
     fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file missing baseline_metrics.active_gate_checks key — Rule 91 / E123"
     _r91_fail=1
   elif [[ "$_r91_declared" != "$_r91_manifest_count" ]]; then
     fail_rule "baseline_metric_matches_executable_manifest" "baseline_metrics.active_gate_checks=$_r91_declared != canonical manifest count $_r91_manifest_count (count of '# Rule N — slug' headers in $_r91_canonical before END marker) — Rule 91 / E123 (rc8 post-corrective P0-1 closure)"
+    _r91_fail=1
+  elif [[ -z "$_r91_enforcer_declared" ]]; then
+    fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file missing baseline_metrics.enforcer_rows key — Rule 91 / E123 (rc10 widening per ADR-0084)"
+    _r91_fail=1
+  elif [[ "$_r91_enforcer_declared" != "$_r91_enforcer_actual" ]]; then
+    fail_rule "baseline_metric_matches_executable_manifest" "baseline_metrics.enforcer_rows=$_r91_enforcer_declared != live enforcer count $_r91_enforcer_actual ('^- id: E[0-9]+' in $_r91_enforcers) — Rule 91 / E123 (rc10 widening per ADR-0084 / I-α-1 closure)"
     _r91_fail=1
   fi
 fi
@@ -4485,7 +4496,7 @@ while IFS= read -r _r94_file; do
     docs/plans/*) continue ;;                    # historical plan documents (frozen archive)
     docs/runbooks/*) continue ;;                 # operational runbooks — may reference historical paths in worked examples
     docs/governance/architecture-graph.yaml) continue ;;  # GENERATED graph; source-of-truth is enforcers.yaml + module-metadata.yaml etc.
-    docs/governance/rules/rule-87.md|docs/governance/rules/rule-94.md) continue ;;  # rule cards that describe the prevention rule — they necessarily quote deleted module names to illustrate what they prevent
+    docs/governance/rules/rule-87.md|docs/governance/rules/rule-94.md|docs/governance/rules/rule-98.md) continue ;;  # rule cards that describe the prevention rule — they necessarily quote deleted module names to illustrate what they prevent
   esac
   # Within-file: lines containing word-boundary agent-platform or agent-runtime
   # (excluding agent-runtime-core), outside fenced code blocks, outside yaml
@@ -4624,6 +4635,150 @@ else
   fi
 fi
 if [[ $_r96_fail -eq 0 ]]; then pass_rule "kernel_deferred_clause_coherence"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 97 — release_note_numeric_truth (enforcer E135)
+#
+# Closes rc10 I-α-2: rc9 release note declared "360 nodes / 510 edges" while
+# the live architecture-graph.yaml header reported 369 / 520. Rule 91 narrowly
+# checks baseline_metrics keys; release-note prose drift went uncaught.
+# Rule 97 scans the LATEST release note (lex-sort tail -1) for the canonical
+# "<N> nodes / <M> edges" claim and asserts equality with live values from
+# `architecture-graph.yaml`. Older release notes are historical snapshots and
+# auto-exempt (each captured the count at its wave time). Lines containing
+# `rc[N] correction`, `rc[N] first cut`, `rc[N] snapshot`, or `historical`
+# within ±3 lines are also exempt.
+# ---------------------------------------------------------------------------
+_r97_fail=0
+_r97_graph="docs/governance/architecture-graph.yaml"
+_r97_releases_dir="docs/releases"
+if [[ ! -f "$_r97_graph" ]]; then
+  fail_rule "release_note_numeric_truth" "$_r97_graph missing — Rule 97 / E135 (cannot establish live node/edge baseline)"
+  _r97_fail=1
+elif [[ ! -d "$_r97_releases_dir" ]]; then
+  fail_rule "release_note_numeric_truth" "$_r97_releases_dir missing — Rule 97 / E135"
+  _r97_fail=1
+else
+  _r97_nodes=$(grep -E '^node_count:' "$_r97_graph" | head -1 | awk '{print $2}')
+  _r97_edges=$(grep -E '^edge_count:' "$_r97_graph" | head -1 | awk '{print $2}')
+  _r97_latest=$(find "$_r97_releases_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort | tail -1)
+  if [[ -z "$_r97_latest" ]]; then
+    : # no release notes yet — vacuously pass
+  else
+    _r97_markers='historical|rc[0-9]+ snapshot|rc[0-9]+ correction|rc[0-9]+ first cut|rc[0-9]+ baseline|superseded|previous|pre-rc[0-9]+'
+    _r97_violations=$(awk -v live_n="$_r97_nodes" -v live_e="$_r97_edges" -v markers="$_r97_markers" '
+      { lines[NR] = $0 }
+      END {
+        in_code = 0
+        for (i = 1; i <= NR; i++) {
+          line = lines[i]
+          if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+          if (in_code) continue
+          # Compute marker window before deciding
+          lo = i - 3; if (lo < 1) lo = 1
+          hi = i + 3; if (hi > NR) hi = NR
+          window = ""
+          for (j = lo; j <= hi; j++) window = window " " lines[j]
+          # Detect absolute (not delta) "<N> nodes" — i.e., no `+` immediately before the digits.
+          if (line ~ /[^+0-9][0-9]+[[:space:]]+nodes/ || line ~ /^[0-9]+[[:space:]]+nodes/) {
+            n_str = line
+            sub(/^[^0-9]*\+[0-9]+[[:space:]]+nodes/, "", n_str)  # strip a leading delta if present
+            if (match(n_str, /[^+0-9]?([0-9]+)[[:space:]]+nodes/)) {
+              s = substr(n_str, RSTART, RLENGTH)
+              gsub(/[^0-9]/, "", s)
+              if (s != "" && s != live_n && window !~ markers) {
+                print i ":nodes:claim=" s ":live=" live_n ":" line
+              }
+            }
+          }
+          if (line ~ /[^+0-9][0-9]+[[:space:]]+edges/ || line ~ /^[0-9]+[[:space:]]+edges/) {
+            e_str = line
+            sub(/^[^0-9]*\+[0-9]+[[:space:]]+edges/, "", e_str)
+            if (match(e_str, /[^+0-9]?([0-9]+)[[:space:]]+edges/)) {
+              s = substr(e_str, RSTART, RLENGTH)
+              gsub(/[^0-9]/, "", s)
+              if (s != "" && s != live_e && window !~ markers) {
+                print i ":edges:claim=" s ":live=" live_e ":" line
+              }
+            }
+          }
+        }
+      }
+    ' "$_r97_latest" 2>/dev/null || true)
+    if [[ -n "$_r97_violations" ]]; then
+      _r97_first=$(echo "$_r97_violations" | head -5 | tr '\n' '|')
+      fail_rule "release_note_numeric_truth" "latest release note $_r97_latest contains absolute node/edge count claim(s) that disagree with live $_r97_graph (nodes=$_r97_nodes, edges=$_r97_edges): ${_r97_first}-- Rule 97 / E135 (rc10 I-α-2 closure; either update the prose to match live counts OR add an 'rc[N] correction'/'rc[N] snapshot' marker within ±3 lines)"
+      _r97_fail=1
+    fi
+  fi
+fi
+if [[ $_r97_fail -eq 0 ]]; then pass_rule "release_note_numeric_truth"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 98 — broad_corpus_deleted_module_name_truth (enforcer E137)
+#
+# Closes rc10 I-ε family: Rule 94 explicitly exempts docs/contracts/openapi-v1.yaml
+# ("separate update plan"), all test fixtures ("pinned contract snapshots"), and
+# narrowly scans only ARCHITECTURE.md + rule cards + test Javadocs. Deleted-module
+# name leaks in ops/helm/**/*.yaml, docs/contracts/openapi-v1.yaml,
+# **/module-metadata.yaml description fields survived rc9's prevention wave.
+# Rule 98 widens the file-discovery scope using the SAME word-boundary regex
+# and ±3-line marker exemption as Rule 94 — closing the Rule 94 implementation
+# /kernel-claim gap where the kernel said "every active .md, .yaml, *.java
+# file" but the implementation scanned a tiny subset.
+# ---------------------------------------------------------------------------
+_r98_fail=0
+_r98_markers='historical|pre-ADR-[0-9]+|pre-Phase-C|consolidated into|consolidation of|consolidated from|merged into|merged in|merger of|was rooted|formerly|superseded|deprecated|archived|moved|extracted per ADR-[0-9]+|Extracted from|extracted from|post-ADR-[0-9]+|post-Phase-C|after Phase C|Phase-C|Phase C|ADR-[0-9]+|subsumes prior|deleted module|stale|drift|prevented|prevents|widens Rule|forbidden_dependencies|forbidden imports|Forbidden imports'
+_r98_violations=""
+while IFS= read -r _r98_file; do
+  [[ -z "$_r98_file" ]] && continue
+  case "$_r98_file" in
+    docs/archive/*|docs/reviews/*) continue ;;
+    docs/releases/2026-05-1[0-7]-*) continue ;;
+  esac
+  _r98_hits=$(awk -v markers="$_r98_markers" '
+    BEGIN {
+      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
+    }
+    { lines[NR] = $0 }
+    END {
+      in_code = 0
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+        if (in_code) continue
+        if (line ~ /^[[:space:]]*#/) continue
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+          lo = i - 3; if (lo < 1) lo = 1
+          hi = i + 3; if (hi > NR) hi = NR
+          window = ""
+          for (j = lo; j <= hi; j++) window = window " " lines[j]
+          if (window !~ markers) print i ":" line
+        }
+      }
+    }
+  ' "$_r98_file" 2>/dev/null || true)
+  if [[ -n "$_r98_hits" ]]; then
+    while IFS= read -r _r98_hit; do
+      _r98_violations="${_r98_violations}${_r98_file}:${_r98_hit}\n"
+    done <<< "$_r98_hits"
+  fi
+done < <(
+  # rc10 widening: surfaces Rule 94 explicitly omitted but where deleted-module-name leaks were found.
+  {
+    find ops -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.tpl' \) 2>/dev/null | sed 's|^\./||'
+    find docs/contracts -maxdepth 1 -type f -name '*.yaml' 2>/dev/null | sed 's|^\./||'
+    find . -maxdepth 3 -type f -name 'module-metadata.yaml' -not -path './target/*' -not -path './*/target/*' -not -path './.git/*' -not -path './docs/archive/*' 2>/dev/null | sed 's|^\./||'
+  } | sort -u
+)
+if [[ -n "$_r98_violations" ]]; then
+  _r98_first=$(printf '%b' "$_r98_violations" | head -5 | tr '\n' '|')
+  fail_rule "broad_corpus_deleted_module_name_truth" "broad corpus contains current-tense pre-Phase-C module name(s) without historical marker (first 5): ${_r98_first}-- Rule 98 / E137 (rc10 I-ε family closure; widens Rule 94 from ARCHITECTURE.md + rule cards + test Javadocs to ops/**, docs/contracts/*.yaml, **/module-metadata.yaml)"
+  _r98_fail=1
+fi
+if [[ $_r98_fail -eq 0 ]]; then pass_rule "broad_corpus_deleted_module_name_truth"; fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

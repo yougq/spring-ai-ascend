@@ -6,7 +6,7 @@ module: spring-ai-ascend-dependencies
 kind: bom                # platform | domain | starter | bom | sample
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Bill of Materials — pins agent-platform, agent-runtime, the graphmemory starter, and OSS transitive dependency versions."
+description: "Bill of Materials — pins the post-Phase-C reactor (agent-service, agent-runtime-core, agent-execution-engine, agent-middleware, agent-bus, agent-client, agent-evolve), the graphmemory starter, and OSS transitive dependency versions. (Pre-Phase-C / ADR-0078 the BoM pinned agent-platform + agent-runtime; those modules were merged into agent-service.)"
 architecture_doc: null   # BoM has no architecture surface; pom.xml is authoritative
 dfx_doc: null            # DFX is optional for kind:bom per Rule 32
 spi_packages: []

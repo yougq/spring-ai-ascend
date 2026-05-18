@@ -15,7 +15,8 @@ spec:
         app: {{ .Release.Name }}
     spec:
       containers:
-        - name: agent-platform
+        # Post-Phase-C / ADR-0078: container hosts agent-service (consolidates pre-Phase-C agent-platform + agent-runtime).
+        - name: agent-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:

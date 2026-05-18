@@ -38,7 +38,7 @@ while IFS= read -r _r94_file; do
     docs/plans/*) continue ;;                    # historical plan documents (frozen archive)
     docs/runbooks/*) continue ;;                 # operational runbooks — may reference historical paths in worked examples
     docs/governance/architecture-graph.yaml) continue ;;  # GENERATED graph; source-of-truth is enforcers.yaml + module-metadata.yaml etc.
-    docs/governance/rules/rule-87.md|docs/governance/rules/rule-94.md) continue ;;  # rule cards that describe the prevention rule — they necessarily quote deleted module names to illustrate what they prevent
+    docs/governance/rules/rule-87.md|docs/governance/rules/rule-94.md|docs/governance/rules/rule-98.md) continue ;;  # rule cards that describe the prevention rule — they necessarily quote deleted module names to illustrate what they prevent
   esac
   # Within-file: lines containing word-boundary agent-platform or agent-runtime
   # (excluding agent-runtime-core), outside fenced code blocks, outside yaml

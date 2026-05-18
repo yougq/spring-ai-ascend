@@ -52,12 +52,4 @@ else
 fi
 if [[ $_r96_fail -eq 0 ]]; then pass_rule "kernel_deferred_clause_coherence"; fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

@@ -507,6 +507,22 @@ Enforced by [`rule-96.md`](docs/governance/rules/rule-96.md).
 
 ---
 
+### rc8 post-corrective review category-sweep follow-up prevention wave (2026-05-19)
+#### Rule 97 — Release-Note Numeric Truth
+
+**The LATEST release note under `docs/releases/*.md` (lex-sort `tail -1`) MUST NOT contain an absolute `<N> nodes` or `<M> edges` prose claim that disagrees with the live values in `docs/governance/architecture-graph.yaml#node_count` and `#edge_count`, unless the line carries a historical / `rc[N] snapshot` / `rc[N] correction` / `rc[N] first cut` / superseded marker within ±3 lines. Delta-formatted claims (`+N nodes / +M edges`) are exempt by syntax. Closes rc10 category-sweep I-α-2: the rc9 release note declared "360 nodes / 510 edges" while the live architecture-graph.yaml header was 369 / 520 — Rule 91 narrowly checked baseline_metrics.active_gate_checks; release-note prose drift was outside its scope.**
+
+Enforced by [`rule-97.md`](docs/governance/rules/rule-97.md).
+
+---
+#### Rule 98 — Broad-Corpus Deleted-Module-Name Truth
+
+**Files under `ops/**/*.{yaml,yml,tpl}`, `docs/contracts/*.yaml`, and `**/module-metadata.yaml` (excluding `docs/archive/`, `docs/reviews/`, and `docs/releases/2026-05-1[0-7]-*.md`) MUST NOT contain word-boundary current-tense references to the pre-Phase-C module names `agent-platform` or `agent-runtime` (the latter NOT matching `agent-runtime-core`) outside an explicit historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deprecated`, `archived`, `moved`, `extracted per ADR-NNNN`, `post-ADR-NNNN`, `forbidden_dependencies`, etc.) within ±3 lines. Closes rc10 category-sweep I-ε family: Rule 94 narrowly scans (ARCHITECTURE.md, `docs/governance/rules/*.md`, `agent-*/src/test/java/**/*{Test,IT}.java`) and explicitly exempts `docs/contracts/openapi-v1.yaml`, `*/src/test/resources/*`, and `ops/` — leaks in the Helm chart triplet, the live OpenAPI contract owner field, and the BoM module-metadata.yaml description survived rc9's prevention wave.**
+
+Enforced by [`rule-98.md`](docs/governance/rules/rule-98.md).
+
+---
+
 ## Deferred Rules
 
 On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 13, 14, 15, 16, 17, 18, 19, 22, 23, 26, 27 + sub-clauses (Rules 11, 24, 29.c, 72 activated 2026-05-18 per Wave 4).

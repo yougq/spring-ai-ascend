@@ -4613,6 +4613,176 @@ fi
 }
 
 # ---------------------------------------------------------------------------
+# Rule 97 positive: latest release note's "<N> nodes / <M> edges" matches live values
+# ---------------------------------------------------------------------------
+test_rule_97_release_note_numeric_pos() {
+_r97_pos_root="$scratch/r97_pos"
+mkdir -p "$_r97_pos_root/docs/releases" "$_r97_pos_root/docs/governance"
+cat > "$_r97_pos_root/docs/governance/architecture-graph.yaml" <<'SHEOF'
+node_count: 369
+edge_count: 520
+SHEOF
+cat > "$_r97_pos_root/docs/releases/2026-05-19-l0-rc10-pos.en.md" <<'SHEOF'
+| Architecture graph | 369 nodes / 520 edges | +21 nodes / +34 edges (rc9 → rc10 delta) |
+SHEOF
+_r97_live_n=$(grep -E '^node_count:' "$_r97_pos_root/docs/governance/architecture-graph.yaml" | awk '{print $2}')
+_r97_live_e=$(grep -E '^edge_count:' "$_r97_pos_root/docs/governance/architecture-graph.yaml" | awk '{print $2}')
+_r97_latest=$(find "$_r97_pos_root/docs/releases" -maxdepth 1 -type f -name '*.md' | sort | tail -1)
+_r97_violations=$(awk -v live_n="$_r97_live_n" -v live_e="$_r97_live_e" '
+  { lines[NR] = $0 }
+  END {
+    in_code = 0
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+      if (in_code) continue
+      if (line ~ /[^+0-9][0-9]+[[:space:]]+nodes/ || line ~ /^[0-9]+[[:space:]]+nodes/) {
+        n_str = line
+        sub(/^[^0-9]*\+[0-9]+[[:space:]]+nodes/, "", n_str)
+        if (match(n_str, /[^+0-9]?([0-9]+)[[:space:]]+nodes/)) {
+          s = substr(n_str, RSTART, RLENGTH); gsub(/[^0-9]/, "", s)
+          if (s != "" && s != live_n) print "violation"
+        }
+      }
+    }
+  }' "$_r97_latest" 2>/dev/null)
+if [[ -z "$_r97_violations" ]]; then
+  ok "rule_97_release_note_numeric_pos" "Rule 97 accepts latest release note with matching node/edge counts"
+else
+  fail "rule_97_release_note_numeric_pos" "unexpected violation: $_r97_violations"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 97 negative: latest release note disagrees with live values, no marker
+# ---------------------------------------------------------------------------
+test_rule_97_release_note_numeric_neg() {
+_r97_neg_root="$scratch/r97_neg"
+mkdir -p "$_r97_neg_root/docs/releases" "$_r97_neg_root/docs/governance"
+cat > "$_r97_neg_root/docs/governance/architecture-graph.yaml" <<'SHEOF'
+node_count: 369
+edge_count: 520
+SHEOF
+cat > "$_r97_neg_root/docs/releases/2026-05-19-l0-rc10-neg.en.md" <<'SHEOF'
+| Architecture graph | 360 nodes / 510 edges | +12 nodes / +24 edges |
+And another line claiming 360 nodes / 510 edges.
+A third line as filler.
+SHEOF
+_r97_live_n=$(grep -E '^node_count:' "$_r97_neg_root/docs/governance/architecture-graph.yaml" | awk '{print $2}')
+_r97_live_e=$(grep -E '^edge_count:' "$_r97_neg_root/docs/governance/architecture-graph.yaml" | awk '{print $2}')
+_r97_latest=$(find "$_r97_neg_root/docs/releases" -maxdepth 1 -type f -name '*.md' | sort | tail -1)
+_r97_markers='historical|rc[0-9]+ snapshot|rc[0-9]+ correction|rc[0-9]+ first cut|rc[0-9]+ baseline|superseded|previous|pre-rc[0-9]+'
+_r97_violations=$(awk -v live_n="$_r97_live_n" -v live_e="$_r97_live_e" -v markers="$_r97_markers" '
+  { lines[NR] = $0 }
+  END {
+    in_code = 0
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+      if (in_code) continue
+      lo = i - 3; if (lo < 1) lo = 1
+      hi = i + 3; if (hi > NR) hi = NR
+      window = ""
+      for (j = lo; j <= hi; j++) window = window " " lines[j]
+      if (line ~ /[^+0-9][0-9]+[[:space:]]+nodes/ || line ~ /^[0-9]+[[:space:]]+nodes/) {
+        n_str = line
+        sub(/^[^0-9]*\+[0-9]+[[:space:]]+nodes/, "", n_str)
+        if (match(n_str, /[^+0-9]?([0-9]+)[[:space:]]+nodes/)) {
+          s = substr(n_str, RSTART, RLENGTH); gsub(/[^0-9]/, "", s)
+          if (s != "" && s != live_n && window !~ markers) print i ":nodes:" s
+        }
+      }
+    }
+  }' "$_r97_latest" 2>/dev/null)
+if [[ -n "$_r97_violations" ]]; then
+  ok "rule_97_release_note_numeric_neg" "Rule 97 correctly flags release note with wrong counts and no marker"
+else
+  fail "rule_97_release_note_numeric_neg" "expected violation, got none"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 98 positive: ops/* yaml uses only agent-service (post-Phase-C name)
+# ---------------------------------------------------------------------------
+test_rule_98_broad_corpus_pos() {
+_r98_pos_root="$scratch/r98_pos"
+mkdir -p "$_r98_pos_root/ops/helm"
+cat > "$_r98_pos_root/ops/helm/test.yaml" <<'SHEOF'
+image:
+  repository: springaiascend/agent-service
+  pullPolicy: IfNotPresent
+SHEOF
+_r98_violations=""
+while IFS= read -r _r98_file; do
+  [[ -z "$_r98_file" ]] && continue
+  _r98_hits=$(awk '
+    BEGIN {
+      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
+    }
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^[[:space:]]*#/) continue
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) print i
+      }
+    }' "$_r98_file" 2>/dev/null)
+  [[ -n "$_r98_hits" ]] && _r98_violations="${_r98_violations}${_r98_file}:${_r98_hits} "
+done < <(find "$_r98_pos_root/ops" -type f -name '*.yaml' 2>/dev/null)
+if [[ -z "$_r98_violations" ]]; then
+  ok "rule_98_broad_corpus_pos" "Rule 98 accepts ops yaml with only agent-service references"
+else
+  fail "rule_98_broad_corpus_pos" "unexpected violations: $_r98_violations"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 98 negative: ops/* yaml has bare agent-platform without historical marker
+# ---------------------------------------------------------------------------
+test_rule_98_broad_corpus_neg() {
+_r98_neg_root="$scratch/r98_neg"
+mkdir -p "$_r98_neg_root/ops/helm"
+cat > "$_r98_neg_root/ops/helm/bad.yaml" <<'SHEOF'
+image:
+  repository: springaiascend/agent-platform
+  pullPolicy: IfNotPresent
+SHEOF
+_r98_markers='historical|pre-ADR-[0-9]+|pre-Phase-C|consolidated into|post-ADR-[0-9]+|post-Phase-C|ADR-[0-9]+|forbidden_dependencies'
+_r98_violations=""
+while IFS= read -r _r98_file; do
+  [[ -z "$_r98_file" ]] && continue
+  _r98_hits=$(awk -v markers="$_r98_markers" '
+    BEGIN {
+      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
+    }
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^[[:space:]]*#/) continue
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+          lo = i - 3; if (lo < 1) lo = 1
+          hi = i + 3; if (hi > NR) hi = NR
+          window = ""
+          for (j = lo; j <= hi; j++) window = window " " lines[j]
+          if (window !~ markers) print i
+        }
+      }
+    }' "$_r98_file" 2>/dev/null)
+  [[ -n "$_r98_hits" ]] && _r98_violations="${_r98_violations}${_r98_file}:${_r98_hits} "
+done < <(find "$_r98_neg_root/ops" -type f -name '*.yaml' 2>/dev/null)
+if [[ -n "$_r98_violations" ]]; then
+  ok "rule_98_broad_corpus_neg" "Rule 98 correctly flags bare agent-platform in ops yaml"
+else
+  fail "rule_98_broad_corpus_neg" "expected violation, got none"
+fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

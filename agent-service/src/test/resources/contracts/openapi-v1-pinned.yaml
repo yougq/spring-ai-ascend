@@ -262,5 +262,6 @@ components:
               description: Optional structured payload (field errors, retry hints, etc.).
 
 x-stability-tier: stable
-x-contract-owner: agent-platform
+# Post-Phase-C / ADR-0078: contract owner is agent-service (consolidates pre-Phase-C agent-platform + agent-runtime).
+x-contract-owner: agent-service
 x-w-note: "W1 surface — adds the run lifecycle endpoints (POST /v1/runs, GET /v1/runs/{runId}, POST /v1/runs/{runId}/cancel). Cancel is a state transition; DELETE is intentionally NOT used for run resources. W2+ additions (streaming Flux<RunEvent>, three-track RunDispatcher) are out of scope at this version."

@@ -14,6 +14,8 @@ ci_evidence: gate/release-ci-evidence/2026-05-19-l0-rc9-corrective.json
 
 # v2.0.0-rc9 — rc8 post-corrective review response + CI-green restoration (2026-05-19)
 
+> **Historical artifact frozen at SHA 0fb9576 (rc9 wave final commit; CI-evidence persist).** Superseded by `docs/releases/2026-05-19-l0-rc10-corrective.en.md` per ADR-0084. Baseline counts in this document (108 active gate rules / 161 self-tests / 83 ADRs / 116 enforcer rows / 360 nodes / 510 edges) reflect the state at rc9 publication time (with the architecture-graph counts subsequently corrected in place — see the inline `rc10 correction` markers on lines 33 + 87 below) and are NOT retroactively updated. Current canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics` and in the rc10 release note. This release is **not retracted** — the rc10 corrective wave is additive prevention-widening only.
+
 ## One-liner
 
 > v2.0.0-rc9 closes all 7 findings of the rc8 post-corrective architecture review (Codex), introduces 6 new prevention gate rules (91–96), reconciles the executable-vs-ledger gate count taxonomy, retires two orphan authority surfaces (`docs/STATE.md`, `docs/dfx/agent-platform.yaml`), and restores CI green on `main` for the first time since rc1 by closing six latent production defects masked by local Docker-less verification.
@@ -30,7 +32,7 @@ ci_evidence: gate/release-ci-evidence/2026-05-19-l0-rc9-corrective.json
 | Gate self-test cases | 161 | +12 (2 per Rule 91–96) |
 | Enforcer rows | 116 | +12 (E123–E134) |
 | Maven tests GREEN (under `./mvnw verify`) | 371 | unchanged (rc9 production changes are annotation/property-only) |
-| Architecture graph | 360 nodes / 510 edges | +12 nodes / +24 edges (rule cards + enforcer pairs + ADR-0083) |
+| Architecture graph | 369 nodes / 520 edges | +21 nodes / +34 edges (rule cards + enforcer pairs + ADR-0083 + miscellaneous edge targets) [rc10 correction: rc9 first cut declared 360 / 510 / +12 / +24 — prose drift from the live `architecture-graph.yaml` header; corrected in place per ADR-0084 / Rule 97 (release-note numeric truth)] |
 | CI runs on `main` GREEN (since repo creation) | 1 | First green run; previously 48 / 50 = 96% red |
 
 ## Findings closed
@@ -84,7 +86,7 @@ All 7 rc8 post-corrective review findings accepted; none rejected. See `docs/rev
 ```bash
 bash gate/check_parallel.sh             # GATE: PASS, parallel_summary: executed 108 rules
 bash gate/test_architecture_sync_gate.sh # Tests passed: 161/161
-python gate/build_architecture_graph.py # 360 nodes / 510 edges; idempotent
+python gate/build_architecture_graph.py # 369 nodes / 520 edges; idempotent (rc10 correction; rc9 first cut said 360/510)
 ./mvnw -B -ntp verify                    # 371 tests GREEN (CI Linux + Docker)
 gh.exe run view <rc9-run-id>             # conclusion: success
 ```

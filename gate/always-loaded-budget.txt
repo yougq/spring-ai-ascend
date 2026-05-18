@@ -42,7 +42,14 @@
 # +6 rule cards, +ADR-0083 (~3.5K); ceiling raised from 130,000 to 140,000.
 # architecture-status.yaml allowed_claim rewrite + baseline_metrics increment
 # raised it to ~104K; ceiling held at 105,000.
-CLAUDE.md=42000
+# 2026-05-19 rc8 post-corrective category-sweep wave (rc10 / ADR-0084): +2 rules
+# (97-98, ~2.1K) raised CLAUDE.md to ~42,000. Ceiling raised from 42,000 to
+# 45,000 to admit Rules 97-98 kernels + post-rc10 baseline rewrites. Future
+# PR2 still targets 8,000 via kernel-shrink. architecture-graph.yaml grows with
+# +4 enforcer rows + 2 rule cards + ADR-0084 (~1.2K); ceiling held at 140,000.
+# architecture-status.yaml grew with allowed_claim rewrite + baseline_metrics
+# refresh (~1.5K); ceiling held at 110,000.
+CLAUDE.md=45000
 ARCHITECTURE.md=82000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000

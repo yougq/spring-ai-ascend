@@ -284,11 +284,12 @@ components:
           description: "Optional callback URL the platform invokes for blocking checkpoints (Human-in-the-loop intervention points)."
 
 x-stability-tier: stable
-x-contract-owner: agent-platform
+# Post-Phase-C / ADR-0078: contract owner is agent-service (consolidates pre-Phase-C agent-platform + agent-runtime).
+x-contract-owner: agent-service
 x-w-note: "W1 surface — adds the run lifecycle endpoints (POST /v1/runs, GET /v1/runs/{runId}, POST /v1/runs/{runId}/cancel). Cancel is a state transition; DELETE is intentionally NOT used for run resources. W2+ additions (streaming Flux<RunEvent>, three-track RunDispatcher) are out of scope at this version."
 
 x-cursor-flow:
   declared_in_w: W1.x
   pattern: "long-horizon POST returns 202 + TaskCursor; client polls cursor_url for state OR subscribes via SSE; webhook callback for blocking checkpoints"
   applies_to: ["/v1/runs"]
-  note: "POST /v1/runs activated as cursor flow in W1.x Phase 8 (ADR-0070). Returns 202 + TaskCursor; the controller fires the dispatcher via CompletableFuture.runAsync so the HTTP response is never gated on dispatcher runtime. Integration test: agent-platform RunCursorFlowIT.createReturns202WithCursorWithin200ms (Rule 36.b). SSE subscription + webhook callback are W2 scope."
+  note: "POST /v1/runs activated as cursor flow in W1.x Phase 8 (ADR-0070). Returns 202 + TaskCursor; the controller fires the dispatcher via CompletableFuture.runAsync so the HTTP response is never gated on dispatcher runtime. Integration test: agent-service RunCursorFlowIT.createReturns202WithCursorWithin200ms (Rule 36.b — post-Phase-C / ADR-0078 the IT lives under agent-service; pre-Phase-C it lived under agent-platform). SSE subscription + webhook callback are W2 scope."

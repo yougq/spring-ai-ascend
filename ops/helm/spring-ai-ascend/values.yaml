@@ -4,7 +4,8 @@
 replicaCount: 2
 
 image:
-  repository: springaiascend/agent-platform
+  # Post-Phase-C / ADR-0078: image hosts agent-service (consolidates pre-Phase-C agent-platform + agent-runtime).
+  repository: springaiascend/agent-service
   pullPolicy: IfNotPresent
   tag: "0.1.0-SNAPSHOT"
 
