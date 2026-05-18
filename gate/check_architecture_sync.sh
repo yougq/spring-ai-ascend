@@ -2440,32 +2440,33 @@ if [[ $_r53_fail -eq 0 ]]; then pass_rule "cursor_flow_integration_test_present"
 # fails. The matching integration test (E73) verifies behaviour separately.
 # ---------------------------------------------------------------------------
 _r54_fail=0
-_r54_main="agent-service/src/main/java/ascend/springai/service/runtime/resilience"
-if [[ ! -d "$_r54_main" ]]; then
-  fail_rule "skill_capacity_runtime_resolver_present" "$_r54_main directory missing — Rule 41.b runtime classes not landed"
+_r54_impl="agent-service/src/main/java/ascend/springai/service/runtime/resilience"
+_r54_spi="agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi"
+if [[ ! -d "$_r54_spi" ]]; then
+  fail_rule "skill_capacity_runtime_resolver_present" "$_r54_spi directory missing — Rule 41.b runtime SPI types not landed (post-ADR-0080 .spi package home)"
   _r54_fail=1
 else
-  if [[ ! -f "$_r54_main/SkillCapacityRegistry.java" ]]; then
-    fail_rule "skill_capacity_runtime_resolver_present" "SkillCapacityRegistry.java missing — Rule 41.b capacity tracking SPI absent"
+  if [[ ! -f "$_r54_spi/SkillCapacityRegistry.java" ]]; then
+    fail_rule "skill_capacity_runtime_resolver_present" "SkillCapacityRegistry.java missing under .spi/ — Rule 41.b capacity tracking SPI absent (ADR-0080 package home)"
     _r54_fail=1
   fi
-  if [[ ! -f "$_r54_main/SkillResolution.java" ]]; then
-    fail_rule "skill_capacity_runtime_resolver_present" "SkillResolution.java missing — Rule 41.b admit/reject envelope absent"
+  if [[ ! -f "$_r54_spi/SkillResolution.java" ]]; then
+    fail_rule "skill_capacity_runtime_resolver_present" "SkillResolution.java missing under .spi/ — Rule 41.b admit/reject envelope absent (ADR-0080 package home)"
     _r54_fail=1
   fi
-  if [[ ! -f "$_r54_main/SuspendReason.java" ]]; then
-    fail_rule "skill_capacity_runtime_resolver_present" "SuspendReason.java missing — Rule 41.b sealed reason taxonomy absent"
+  if [[ ! -f "$_r54_spi/SuspendReason.java" ]]; then
+    fail_rule "skill_capacity_runtime_resolver_present" "SuspendReason.java missing under .spi/ — Rule 41.b sealed reason taxonomy absent (ADR-0080 package home)"
     _r54_fail=1
   fi
-  if [[ ! -f "$_r54_main/DefaultSkillResilienceContract.java" ]]; then
-    fail_rule "skill_capacity_runtime_resolver_present" "DefaultSkillResilienceContract.java missing — Rule 41.b production impl absent"
+  if [[ ! -f "$_r54_impl/DefaultSkillResilienceContract.java" ]]; then
+    fail_rule "skill_capacity_runtime_resolver_present" "DefaultSkillResilienceContract.java missing in impl parent package — Rule 41.b production impl absent"
     _r54_fail=1
   else
-    if ! grep -qE 'SkillResolution[[:space:]]+resolve\([[:space:]]*String[[:space:]]+\w+,[[:space:]]*String[[:space:]]+\w+[[:space:]]*\)' "$_r54_main/DefaultSkillResilienceContract.java"; then
+    if ! grep -qE 'SkillResolution[[:space:]]+resolve\([[:space:]]*String[[:space:]]+\w+,[[:space:]]*String[[:space:]]+\w+[[:space:]]*\)' "$_r54_impl/DefaultSkillResilienceContract.java"; then
       fail_rule "skill_capacity_runtime_resolver_present" "DefaultSkillResilienceContract.java missing two-arg resolve(String, String) returning SkillResolution"
       _r54_fail=1
     fi
-    if ! grep -qE 'tryAcquire\(' "$_r54_main/DefaultSkillResilienceContract.java"; then
+    if ! grep -qE 'tryAcquire\(' "$_r54_impl/DefaultSkillResilienceContract.java"; then
       fail_rule "skill_capacity_runtime_resolver_present" "DefaultSkillResilienceContract.java does not call SkillCapacityRegistry.tryAcquire — Rule 41.b runtime consultation missing"
       _r54_fail=1
     fi
@@ -4036,6 +4037,129 @@ if [[ $_r85_fail -eq 0 ]]; then pass_rule "catalog_spi_row_matches_module_spi_me
 
 # ---------------------------------------------------------------------------
 # Summary
+# ===========================================================================
+# 2026-05-18 rc6 post-response review response prevention wave -- Rules 86-87
+# Authority: docs/governance/rules/rule-86.md + rule-87.md
+#            + docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md
+#            + docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review-response.en.md
+# Closes finding families:
+#   P0-2 root ARCHITECTURE.md 8-module + stale path claims after ADR-0078/0079 -> Rule 86
+#   P1-2 architecture-status.yaml allowed_claim stale module names              -> Rule 87
+# ===========================================================================
+
+# Rule 86 -- root_architecture_count_and_path_truth (enforcer E119)
+#
+# Every "N-module" / "N modules" / "N reactor modules" claim in root
+# ARCHITECTURE.md (outside fenced code blocks and frontmatter) MUST equal the
+# pom.xml <module> count AND architecture-status.yaml#repository_counts.reactor_modules.
+# Every "agent-*/src/main/java/..." path claim MUST resolve OR have a historical
+# marker within +/-3 lines. Operationalises rc6 post-response review P0-2 closure.
+# ---------------------------------------------------------------------------
+_r86_fail=0
+_r86_arch="ARCHITECTURE.md"
+_r86_pom="pom.xml"
+_r86_status_yaml="docs/governance/architecture-status.yaml"
+if [[ ! -f "$_r86_arch" ]]; then
+  fail_rule "root_architecture_count_and_path_truth" "$_r86_arch missing -- Rule 86 / E119"
+  _r86_fail=1
+elif [[ ! -f "$_r86_pom" ]]; then
+  fail_rule "root_architecture_count_and_path_truth" "$_r86_pom missing -- Rule 86 / E119"
+  _r86_fail=1
+elif [[ ! -f "$_r86_status_yaml" ]]; then
+  fail_rule "root_architecture_count_and_path_truth" "$_r86_status_yaml missing -- Rule 86 / E119"
+  _r86_fail=1
+else
+  _r86_pom_count=$(awk '/<modules>/,/<\/modules>/' "$_r86_pom" | grep -cE '^[[:space:]]*<module>')
+  _r86_status_count=$(awk '/^repository_counts:/{flag=1; next} flag && /^[a-z]/{flag=0} flag' "$_r86_status_yaml" | grep -oE 'reactor_modules:[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')
+  if [[ "$_r86_pom_count" != "$_r86_status_count" ]]; then
+    fail_rule "root_architecture_count_and_path_truth" "pom.xml declares $_r86_pom_count modules but architecture-status.yaml reactor_modules: $_r86_status_count -- Rule 86 / E119 (canonical sources disagree)"
+    _r86_fail=1
+  fi
+  _r86_canonical=$_r86_pom_count
+  _r86_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated|merged into|merged in|was rooted|formerly|superseded|deferred|moved|extracted per ADR-[0-9]{4}|post-ADR-[0-9]{4}|archived'
+  _r86_in_code=0
+  _r86_lineno=0
+  _r86_in_frontmatter=0
+  _r86_frontmatter_seen_open=0
+  while IFS= read -r _r86_line || [[ -n "$_r86_line" ]]; do
+    _r86_lineno=$((_r86_lineno + 1))
+    if [[ "$_r86_line" =~ ^---[[:space:]]*$ ]]; then
+      if [[ $_r86_frontmatter_seen_open -eq 0 ]]; then
+        _r86_in_frontmatter=1; _r86_frontmatter_seen_open=1
+      else
+        _r86_in_frontmatter=0
+      fi
+      continue
+    fi
+    [[ $_r86_in_frontmatter -eq 1 ]] && continue
+    if [[ "$_r86_line" =~ ^\`\`\` ]]; then
+      _r86_in_code=$((1 - _r86_in_code))
+      continue
+    fi
+    [[ "$_r86_in_code" -eq 1 ]] && continue
+    _r86_count_claim=$(echo "$_r86_line" | grep -oE '\*\*[0-9]+ modules\*\*|\b[0-9]+-module\b|\b[0-9]+ reactor modules\b|\b[0-9]+ modules\b' | head -1)
+    if [[ -n "$_r86_count_claim" ]]; then
+      _r86_claim_num=$(echo "$_r86_count_claim" | grep -oE '[0-9]+' | head -1)
+      _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
+      _r86_hi=$((_r86_lineno + 3))
+      _r86_marker_present=0
+      if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then
+        _r86_marker_present=1
+      fi
+      if [[ $_r86_marker_present -eq 0 ]] && [[ "$_r86_claim_num" != "$_r86_canonical" ]]; then
+        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno active count claim '$_r86_count_claim' (N=$_r86_claim_num) disagrees with canonical $_r86_canonical from pom.xml + architecture-status.yaml -- Rule 86 / E119 (root architecture count drift)"
+        _r86_fail=1
+      fi
+    fi
+    _r86_paths=$(echo "$_r86_line" | grep -oE 'agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+' | sort -u)
+    if [[ -n "$_r86_paths" ]]; then
+      while IFS= read -r _r86_path; do
+        [[ -z "$_r86_path" ]] && continue
+        _r86_path_clean="${_r86_path%.}"
+        if [[ -e "$_r86_path_clean" ]] || [[ -e "${_r86_path_clean}.java" ]]; then continue; fi
+        _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
+        _r86_hi=$((_r86_lineno + 3))
+        if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
+        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno claims path '$_r86_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR/consolidated/pre-Phase-C marker -- Rule 86 / E119"
+        _r86_fail=1
+      done <<< "$_r86_paths"
+    fi
+  done < "$_r86_arch"
+fi
+if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_truth"; fi
+
+# Rule 87 -- status_yaml_allowed_claim_module_name_truth (enforcer E120)
+#
+# Every allowed_claim: text value in docs/governance/architecture-status.yaml
+# MUST NOT contain current-tense agent-platform or agent-runtime (NOT
+# agent-runtime-core) outside a historical marker within +/-3 lines.
+# Operationalises rc6 post-response review P1-2 closure.
+# ---------------------------------------------------------------------------
+_r87_fail=0
+_r87_yaml="docs/governance/architecture-status.yaml"
+if [[ ! -f "$_r87_yaml" ]]; then
+  fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml missing -- Rule 87 / E120"
+  _r87_fail=1
+else
+  _r87_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
+  _r87_lineno=0
+  while IFS= read -r _r87_line || [[ -n "$_r87_line" ]]; do
+    _r87_lineno=$((_r87_lineno + 1))
+    if ! echo "$_r87_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*'; then continue; fi
+    _r87_value=$(echo "$_r87_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
+    _r87_value="${_r87_value#\"}"
+    _r87_value="${_r87_value%\"}"
+    _r87_stale=$(echo "$_r87_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+    if [[ -z "$_r87_stale" ]]; then continue; fi
+    _r87_lo=$((_r87_lineno > 3 ? _r87_lineno - 3 : 1))
+    _r87_hi=$((_r87_lineno + 3))
+    if sed -n "${_r87_lo},${_r87_hi}p" "$_r87_yaml" 2>/dev/null | grep -qiE "$_r87_marker_re"; then continue; fi
+    fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml:$_r87_lineno allowed_claim text contains current-tense '$_r87_stale' (pre-Phase-C module name) without historical/pre-ADR/consolidated marker in +/-3 lines -- Rule 87 / E120 (allowed_claim module name drift)"
+    _r87_fail=1
+  done < "$_r87_yaml"
+fi
+if [[ $_r87_fail -eq 0 ]]; then pass_rule "status_yaml_allowed_claim_module_name_truth"; fi
+
 # ---------------------------------------------------------------------------
 if [[ $fail_count -eq 0 ]]; then
   echo "GATE: PASS"

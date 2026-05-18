@@ -51,7 +51,28 @@ requiring a major-version declaration (per ADR-0014 versioning policy).
 | `RunContext` interface | per-run context SPI |
 | `Orchestrator` (outer signature) | `Object run(UUID, String, ExecutorDefinition, Object)` |
 | `RunLifecycle` interface (W2) | cancel / resume / retry |
-| `ResilienceContract` interface | per-operation routing (HD-C.3: classified here, not tier-specific) |
+| `ResilienceContract` interface | per-operation routing (HD-C.3: classified here, not tier-specific); dual-surface per ADR-0081 |
+
+### Layer 1 surface enumeration (rc7 doc-precision addendum, 2026-05-18)
+
+`RunRepository` SPI (six-method surface; all methods are stable from W0 — future expansion such as
+status-history queries requires an ADR amendment block):
+
+| Method | Axis | Notes |
+|---|---|---|
+| `findById(UUID runId)` | single-run lookup | Tenant-agnostic primary-key lookup; callers MUST cross-check `Run.tenantId()` against the request tenant (Rule 11). |
+| `save(Run run)` | upsert | Insert-or-update; backing impl decides idempotency. |
+| `findByTenant(String tenantId)` | tenant filter | Returns all runs for the tenant. Rule 11 tenant-scoping. |
+| `findByTenantAndStatus(String tenantId, RunStatus status)` | tenant + status filter | Composite filter for status dashboards. |
+| `findByParentRunId(UUID parentRunId)` | hierarchy descent | Child runs of a parent (suspend-for-child / nested loop). |
+| `findRootRuns(String tenantId)` | hierarchy root | Top-level runs only (`parentRunId IS NULL`) within a tenant. |
+
+The six-method surface is intrinsic to the Orchestrator SPI per ADR-0023 (`orchestration.spi` may
+import `runs.*` and `runs.spi.*`). Implementations live in `agent-runtime-core/.../runtime/runs/spi/`
+post-ADR-0079; the W0 dev-posture adapter is `InMemoryRunRegistry` in `agent-service`. ADR-0044 row
+"`RunRepository` | tenant-scoped | explicit `tenantId` arg on `findByTenant*`" remains valid; this
+addendum makes the six-method enumeration explicit so W2 implementers (Spring Data JDBC + Postgres
+per the planned W2 wave) have a stable target surface.
 
 ### Layer 2 — Tier-specific execution adapters (shape varies per tier)
 

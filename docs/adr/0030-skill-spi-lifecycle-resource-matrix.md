@@ -220,7 +220,13 @@ public record ResiliencePolicy(
 ) {}
 ```
 
-`ResilienceContract.resolve(operationId)` extends to accept `(tenantId, operationId)` at W2.
+`ResilienceContract.resolve(operationId)` remains the **operation-policy routing** surface (W0+).
+A SECOND OVERLOAD `resolve(tenant, skill)` was introduced in W1.x Phase 9 (ADR-0070, Rule 41.b) for
+**skill-capacity arbitration** — this overload **supersedes** the pre-ADR-0070 plan to extend the
+operation surface to `(tenantId, operationId)`. The two axes (operation-policy routing vs
+skill-capacity arbitration) MUST NOT be conflated. See ADR-0081 (Dual-Surface Reconciliation,
+2026-05-18) for the formal reconciliation; this paragraph is amended in place rather than removed so
+the original W2 evolution claim's history is preserved.
 
 ### Integration with HookChain (HD-C.3)
 

@@ -1067,3 +1067,20 @@
   view: development
   artifact: gate/check_architecture_sync.sh#catalog_spi_row_matches_module_spi_metadata
   asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule 78 set."
+
+- id: E119
+  constraint_ref: "CLAUDE.md Rule 86 (root_architecture_count_and_path_truth); rc6 post-response review P0-2; ADR-0078; ADR-0079"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#root_architecture_count_and_path_truth
+  asserts: "Root ARCHITECTURE.md numeric module-count claims (\b[0-9]+-module\b | \b[0-9]+ modules\b | \b[0-9]+ reactor modules\b) outside fenced code blocks and YAML frontmatter MUST equal both (a) the count of <module> entries in root pom.xml and (b) docs/governance/architecture-status.yaml#repository_counts.reactor_modules; root ARCHITECTURE.md path claims of shape agent-*/src/main/java/... MUST resolve to a real path on disk OR carry one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, merged, was rooted, formerly, superseded, deferred, moved, extracted per ADR-NNNN, post-ADR-NNNN, archived) within +/-3 lines. Closes rc6 post-response P0-2: root ARCHITECTURE.md count and path truth (Rule 84 covers agent-*/ARCHITECTURE.md; Rule 86 covers root)."
+
+- id: E120
+  constraint_ref: "CLAUDE.md Rule 87 (status_yaml_allowed_claim_module_name_truth); rc6 post-response review P1-2; ADR-0078; ADR-0079"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#status_yaml_allowed_claim_module_name_truth
+  asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform or agent-runtime (negative-filtered against agent-runtime-core) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2: ledger allowed_claim text cannot drift to deleted module names while structured repository_counts correctly declares the post-ADR-0078 9-module topology."
+  asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule 78 set."

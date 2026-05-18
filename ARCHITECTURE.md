@@ -74,22 +74,30 @@ References: §4 #53–#59, ADR-0061/0062/0063, `docs/telemetry/policy.md`.
 
 ## 2. Module layout
 
-### Eight-module post-Phase-C state (2026-05-18)
+### Nine-module post-ADR-0078 + ADR-0079 state (2026-05-18)
 
-The reactor declares **8 modules** today, mapping 1:1 to the six L0 team-facing
-concepts (AgentClient, AgentService, Middleware, AgentBus, AgentEvolve,
-AgentExecutionEngine) plus the BoM and the graphmemory starter. Phase C
-(ADR-0078, 2026-05-18) consolidated the prior `agent-platform` + `agent-runtime`
-into a single `agent-service` module with sub-package layering
+The reactor declares **9 modules** today: the six L0 team-facing concepts
+(AgentClient, AgentService, AgentMiddleware, AgentExecutionEngine, AgentBus,
+AgentEvolve) + the shared kernel module `agent-runtime-core` introduced by
+ADR-0079 + the BoM + the graphmemory starter. Phase C (ADR-0078, 2026-05-18)
+consolidated the prior `agent-platform` + `agent-runtime` (which existed as
+separate modules pre-Phase-C, formerly the original 8-module shape) into a
+single `agent-service` module with sub-package layering
 (`ascend.springai.service.platform.*` for the HTTP edge,
 `ascend.springai.service.runtime.*` for the cognitive runtime kernel). Rule 21
 generalised to forbid `service.runtime -> service.platform` imports at the
-sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest`).
+sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest`). Engine
+extraction T2.B2 (ADR-0079, 2026-05-18) then introduced the shared kernel
+module `agent-runtime-core` (hosting `Run`, `RunContext`, `SuspendSignal`,
+`ExecutorDefinition`, `Checkpointer` SPI, `TraceContext`, S2C SPI) and moved
+engine SPI + `EngineRegistry` + `EngineEnvelope` into `agent-execution-engine`
+— this resolved the prior back-dependency cycle.
 
 | Module | Plane (P-I) | Owner team | Maturity today |
 |--------|-------------|-----------|----------------|
 | `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049) |
 | `agent-service` | compute_control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`); post-Phase-C consolidation per ADR-0078 |
+| `agent-runtime-core` | compute_control | AgentService | shipped — shared kernel SPI types (`Run`, `RunContext`, `SuspendSignal`, `Checkpointer`, `TraceContext`, `ExecutorDefinition`, S2C SPI) extracted per ADR-0079 (2026-05-18) |
 | `agent-middleware` | compute_control | Middleware | SPI extracted from `agent-service.runtime` (T2.B1, 2026-05-17) |
 | `agent-execution-engine` | compute_control | AgentExecutionEngine | engine SPI + EngineRegistry/EngineEnvelope extracted per ADR-0079; reference adapters remain in agent-service.runtime |
 | `agent-bus` | bus_state | AgentBus | skeleton (contracts only; W2 impl per ADR-0050) |
@@ -137,60 +145,29 @@ spring-ai-ascend/
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-evolve.yaml
     src/main/java/ascend/springai/evolve/spi/  # placeholder SPI
 
-  agent-platform/                              # Northbound facade (L1: HTTP, JWT, tenant, idempotency)
-    src/main/java/ascend/springai/platform/
-      PlatformApplication.java
-      web/
-        HealthController.java                  # GET /v1/health
-        HealthResponse.java
-        WebSecurityConfig.java
-      tenant/
-        TenantContextFilter.java               # X-Tenant-Id → TenantContextHolder
-        TenantContextHolder.java
-        TenantFilterAutoConfiguration.java
-        TenantContext.java / TenantConstants.java
-      idempotency/
-        IdempotencyHeaderFilter.java           # Idempotency-Key header validation (W0; no dedup)
-        IdempotencyStore.java                  # W0 stub; not registered as bean
-        IdempotencyFilterAutoConfiguration.java
-        IdempotencyKey.java / IdempotencyConstants.java
-      persistence/
-        HealthCheckRepository.java
-      probe/
-        OssApiProbe.java
+  agent-service/                               # Northbound facade (L1: HTTP, JWT, tenant, idempotency) + cognitive runtime impl (consolidated post-ADR-0078)
+    src/main/java/ascend/springai/service/
+      platform/                                # was `agent-platform/` pre-ADR-0078 (consolidated into agent-service per Phase C, 2026-05-18)
+        PlatformApplication.java
+        web/                                   # HealthController, WebSecurityConfig
+        tenant/                                # TenantContextFilter / Holder / AutoConfiguration / Context / Constants
+        idempotency/                           # IdempotencyHeaderFilter / Store / AutoConfiguration / Key / Constants
+        persistence/                           # HealthCheckRepository
+        probe/                                 # OssApiProbe
+      runtime/                                 # was `agent-runtime/` pre-ADR-0078 (consolidated) + post-ADR-0079 (kernel extracted to agent-runtime-core; engine SPI extracted to agent-execution-engine)
+        probe/                                 # OssApiProbe
+        resilience/                            # impls: DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry — SPI types moved to .spi/ per ADR-0080
+          spi/                                 # ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason, SkillCapacityRegistry (extracted per ADR-0080, 2026-05-18)
+        orchestration/inmemory/                # Reference adapters (posture-gated dev defaults): InMemoryCheckpointer, InMemoryRunRegistry, SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor
 
-  agent-runtime/                               # Cognitive runtime kernel (SPI contracts + domain entities)
-    src/main/java/ascend/springai/runtime/
-      memory/spi/
-        GraphMemoryRepository.java             # SPI interface (interface only, W1+)
-      probe/
-        OssApiProbe.java
-      resilience/
-        ResilienceContract.java                # Per-operation resilience routing
-        ResiliencePolicy.java
-        YamlResilienceContract.java            # Map-backed impl (Spring wiring deferred to W2)
-      runs/
-        Run.java                               # Run entity (mode, parentRunId, parentNodeKey, SUSPENDED)
-        RunMode.java                           # GRAPH | AGENT_LOOP discriminator
-        RunStatus.java                         # PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED/EXPIRED
-        RunStateMachine.java                   # DFA validator — validate/allowedTransitions/isTerminal (Rule 20, ADR-0020)
-        RunRepository.java                     # SPI interface (pure Java)
-      idempotency/
-        IdempotencyRecord.java                 # Idempotency entity — Rule 11 contract spine
-      orchestration/spi/
-        Orchestrator.java                      # Entry point: owns suspend/checkpoint/resume loop
-        RunContext.java                        # Per-run ctx: tenantId, checkpointer, suspendForChild
-        GraphExecutor.java                     # SPI: deterministic graph traversal
-        AgentLoopExecutor.java                 # SPI: ReAct-style iterative reasoning
-        ExecutorDefinition.java                # Sealed: GraphDefinition | AgentLoopDefinition
-        SuspendSignal.java                     # Checked exception — one interrupt for both modes
-        Checkpointer.java                      # SPI: suspend-point persistence
-      orchestration/inmemory/
-        InMemoryCheckpointer.java              # Dev-posture: ConcurrentHashMap-backed
-        InMemoryRunRegistry.java               # Dev-posture: ConcurrentHashMap-backed RunRepository
-        SyncOrchestrator.java                  # Reference: single-threaded suspend/checkpoint/resume loop
-        SequentialGraphExecutor.java           # Reference: node→edge traversal with checkpoint on suspend
-        IterativeAgentLoopExecutor.java        # Reference: ReAct loop with iter+state checkpoint on suspend
+  agent-runtime-core/                          # NEW 2026-05-18 per ADR-0079: shared kernel SPI types + entities (resolves the prior back-dep cycle)
+    src/main/java/ascend/springai/service/runtime/
+      runs/                                    # Run, RunMode, RunStatus, RunStateMachine — entity + DFA validator (moved here per ADR-0079; formerly at `agent-runtime/` pre-Phase-C)
+        spi/                                   # RunRepository — pure-Java SPI interface
+      orchestration/spi/                       # Orchestrator, RunContext, SuspendSignal (checked, with forClientCallback variant per ADR-0074 rc3 unification), Checkpointer, TraceContext, ExecutorDefinition sealed hierarchy (moved here per ADR-0079)
+      s2c/spi/                                 # S2cCallbackEnvelope, S2cCallbackTransport, S2cCallbackResponse, S2cCallbackOutcome (moved here in rc3 + ADR-0079)
+      memory/spi/                              # GraphMemoryRepository — interface only (W1+ adapter via graphmemory starter; ADR-0034)
+      idempotency/                             # IdempotencyRecord — Rule 11 contract spine
 
   spring-ai-ascend-graphmemory-starter/        # E2 adapter shell (Graphiti W1 ref per ADR-0034; auto-config disabled; full code W2)
     src/main/java/ascend/springai/runtime/graphmemory/
@@ -199,37 +176,47 @@ spring-ai-ascend/
 
 ```
 
-Module dependency direction (enforced by `ApiCompatibilityTest` ArchUnit rules):
+Historical note (pre-ADR-0078 / pre-ADR-0079): the reactor previously had
+separate `agent-platform/` and `agent-runtime/` modules. ADR-0078 (Phase C,
+2026-05-18) merged them into the consolidated `agent-service/` module with
+sub-package layering shown above. ADR-0079 (T2.B2, 2026-05-18) then extracted
+the shared kernel SPI types out of `agent-service.service.runtime.*` into the
+new `agent-runtime-core/` module so the back-dependency between engine and
+runtime kernel could be resolved without circular Maven references.
+
+Module dependency direction (enforced by `ApiCompatibilityTest`, `RuntimeMustNotDependOnPlatformTest`, `OrchestrationSpiArchTest`, `MemorySpiArchTest`, `SpiPurityGeneralizedArchTest` ArchUnit rules — post-ADR-0078/0079):
 
 ```
-agent-platform  ──────────────────────────────►  [Postgres / LLMs / sidecars]
+agent-service  ────────────►  agent-runtime-core, agent-execution-engine, agent-middleware,
+                              [Postgres / LLMs / sidecars]
 
-agent-runtime  ──(no platform dep)─────────────►  [Postgres / LLMs / sidecars]
+agent-execution-engine ───►  agent-runtime-core, [externals]
 
-spring-ai-ascend-graphmemory-starter  ──────────►  agent-runtime SPI
+agent-middleware  ────────►  agent-runtime-core, [externals]
+
+agent-runtime-core  ──────►  [externals only — back-edge to runtime impl is forbidden]
+
+spring-ai-ascend-graphmemory-starter  ──►  agent-runtime-core SPI surfaces
 ```
 
-At W0 neither module depends on the other at the Maven module level. The previously
-declared `agent-runtime → agent-platform` pom dependency was unused at the source level
-and has been removed (ADR-0026). W1 will introduce `agent-platform-contracts` as a shared
-SPI module when `agent-runtime` first needs a common type (e.g. `TenantContext` for
-`RunController`).
-
-`agent-platform` MAY depend on `agent-runtime` public surfaces (`runs.*`,
-`orchestration.spi.*`, `posture.*`, `resilience.*`, plus authorized wiring
-exceptions) per ADR-0055 (which superseded the original prohibition from
-ADR-0026). The remaining negative invariant is one-directional: `agent-runtime`
-MUST NOT depend on `agent-platform`, enforced by
-`RuntimeMustNotDependOnPlatformTest` (broad, all platform classes) and
-`TenantPropagationPurityTest` (narrow, `TenantContextHolder` specifically) — see
-Rule 21. The HTTP edge MUST NOT import memory SPI or internal runtime impl
-packages (enforced by `PlatformImportsOnlyRuntimePublicApiTest`). SPI packages
-(`ascend.springai.service.runtime.*.spi.*`) import only `java.*` + same-spi-package
-siblings (enforced by `OrchestrationSpiArchTest`, `MemorySpiArchTest`, and
+The original pre-Phase-C `agent-runtime → agent-platform` Maven dependency was
+unused at the source level and was removed per ADR-0026; both of those modules
+no longer exist as separate Maven modules after ADR-0078 (Phase C consolidation).
+The negative invariant Rule 21 was generalised to sub-package layering inside
+`agent-service`: no class under `ascend.springai.service.runtime..` may import any
+class under `ascend.springai.service.platform..` (broad — enforced by
+`RuntimeMustNotDependOnPlatformTest`) and the original narrow case (no import of
+`TenantContextHolder`) is preserved as defence-in-depth (enforced by
+`TenantPropagationPurityTest`). The HTTP edge MUST NOT import memory SPI or
+internal runtime impl packages (enforced by `PlatformImportsOnlyRuntimePublicApiTest`).
+SPI packages (`ascend.springai.service.runtime.*.spi.*` post-ADR-0079 +
+`ascend.springai.engine.spi.*` post-ADR-0079 + `ascend.springai.middleware.spi.*`
+post-ADR-0073) import only `java.*` + same-spi-package siblings (enforced by
+`OrchestrationSpiArchTest`, `MemorySpiArchTest`, and
 `SpiPurityGeneralizedArchTest#s2c_spi_imports_only_java_and_same_package_siblings`
 for the s2c.spi surface specifically — `orchestration.spi` retains its
-long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
-`RunRepository` which are intrinsic to the orchestrator SPI surface).
+long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run`,
+`RunMode`, `RunRepository` which are intrinsic to the orchestrator SPI surface).
 
 ---
 
@@ -258,12 +245,19 @@ long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
 
 ## 4. Architecture constraints
 
-1. **Dependency direction**: neither `agent-platform` nor `agent-runtime` depends on
-   the other at the Maven module level. `agent-platform` MUST NOT import `agent-runtime`
-   Java types (enforced by `ApiCompatibilityTest`). The `agent-service/pom.xml` dependency
-   on `agent-platform` was a speculative dead-weight reference with zero source imports; it
-   has been removed (ADR-0026). W1 will add `agent-platform-contracts` as a shared SPI
-   module when a common type is genuinely needed.
+1. **Dependency direction** (post-ADR-0078 / ADR-0079): the Maven-level direction is now
+   (a) `agent-service` depends only on inner peers when the SPI is hosted there
+   (`agent-runtime-core`, `agent-execution-engine`, `agent-middleware`);
+   (b) `agent-execution-engine` depends on `agent-runtime-core` (for the kernel SPI it
+   bridges), never on `agent-service`;
+   (c) `agent-runtime-core` depends on no inner peer — only `java.*` + minimal externals.
+   The original pre-Phase-C `agent-platform ↛ agent-runtime` Maven-module-level invariant
+   was retargeted to a sub-package layering invariant inside the consolidated `agent-service`
+   module: `service.runtime` MUST NOT import `service.platform` (Rule 21, enforced by
+   `RuntimeMustNotDependOnPlatformTest` and `TenantPropagationPurityTest`). The speculative
+   `agent-service/pom.xml → agent-platform` dependency was removed per ADR-0026 before
+   Phase C and Phase C subsequently merged both source roots into `agent-service` (so the
+   former Maven dependency no longer exists in any form).
 
 2. **Posture model**: `APP_POSTURE={dev|research|prod}`. Read once at boot.
    `dev` is permissive (in-memory stores, relaxed validation).
@@ -424,9 +418,12 @@ long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
     per type. All implementation deferred to W2 (Rule 22). See ADR-0022.
 
 22. **Canonical run context propagation.** `RunContext.tenantId()` is the sole carrier of tenant
-    identity inside `agent-runtime`. No production class under `ascend.springai.service.runtime..` may import
-    any class under `ascend.springai.service.platform..` — including (but not limited to) `TenantContextHolder`
-    (HTTP-edge ThreadLocal in `agent-platform`). Enforced by `RuntimeMustNotDependOnPlatformTest`
+    identity inside the runtime kernel (extracted to `agent-runtime-core` per ADR-0079) and its
+    impl host (`agent-service.service.runtime`). No production class under
+    `ascend.springai.service.runtime..` may import any class under
+    `ascend.springai.service.platform..` — including (but not limited to) `TenantContextHolder`
+    (HTTP-edge ThreadLocal in `agent-service.service.platform`; was rooted in `agent-platform`
+    pre-ADR-0078). Enforced by `RuntimeMustNotDependOnPlatformTest`
     (ArchUnit — Rule 21 L1 generalisation per ADR-0055) and `TenantPropagationPurityTest`
     (ArchUnit — original narrow Rule 21 per ADR-0023, preserved as defence-in-depth).
     Timer-driven and async resumes source tenant
@@ -654,7 +651,9 @@ long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
     See ADR-0047.
 
 46. **Service-Layer Microservice-Architecture Commitment.** The Service Layer
-    (`agent-platform` HTTP edge + `agent-runtime` cognitive runtime) is deployed and
+    (HTTP edge in `agent-service.service.platform` + cognitive runtime in
+    `agent-service.service.runtime` + shared kernel in `agent-runtime-core` +
+    engine SPI in `agent-execution-engine`, post-ADR-0078/0079) is deployed and
     scaled as **long-running microservices** — long-lived JVM processes, multiple replicas,
     horizontal scaling. Multiple Agent Service instances coordinate via the **Agent Bus**
     (cross-docker, cross-service); the bus is platform-owned, not middleware. **Agent Bus
@@ -797,11 +796,11 @@ long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
     channel pools, event-loop schedulers) are W2+ implementation guidance and MUST NOT
     appear as L0 contract. See ADR-0054.
 
-53. **Telemetry Vertical first-class.** The Telemetry Vertical (Trace + Span + LlmCall) is a named cross-cutting concept declared in `ARCHITECTURE.md §0.5.3`. Every horizontal layer (HTTP edge, orchestration, executor, adapter, MCP) MUST emit into it via the `TraceContext` SPI or the Hook SPI — never directly. Direct telemetry emission from adapter code (LlmGateway, ToolInvoker, DB/Redis bridges) is forbidden. Enforced by ArchUnit `TelemetryVerticalArchTest` (no class outside `agent-runtime/observability` or `agent-platform/observability` may write to a `TraceWriter`-shaped sink). See ADR-0061.
+53. **Telemetry Vertical first-class.** The Telemetry Vertical (Trace + Span + LlmCall) is a named cross-cutting concept declared in `ARCHITECTURE.md §0.5.3`. Every horizontal layer (HTTP edge, orchestration, executor, adapter, MCP) MUST emit into it via the `TraceContext` SPI or the Hook SPI — never directly. Direct telemetry emission from adapter code (LlmGateway, ToolInvoker, DB/Redis bridges) is forbidden. Enforced by ArchUnit `TelemetryVerticalArchTest` (no class outside `agent-service/src/main/java/ascend/springai/service/runtime/observability` or `agent-service/src/main/java/ascend/springai/service/platform/observability` may write to a `TraceWriter`-shaped sink — paths reflect the post-ADR-0078 sub-package layout; was rooted in `agent-runtime/observability` / `agent-platform/observability` pre-Phase-C). See ADR-0061.
 
 54. **Trace ↔ Run ↔ Session identity (N:M).** Every persisted `Run` row MUST carry a non-null `trace_id` (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via `V2__run_trace_id_notnull.sql`). `Run.sessionId` MAY be null at L1.x; in posture=research/prod from W2 it MUST be non-null. Multiple Runs MAY share a Trace or a Session. `RunContext` MUST expose `traceId()`, `spanId()`, `sessionId()`, and `traceContext()` alongside `tenantId()`. Child Runs spawned via `SuspendForChild` inherit `sessionId` from the parent and start a new Trace whose root span attribute `parent_trace_id` points to the parent's `traceId` (ADR-0062 default policy). Enforced by ArchUnit `RunContextIdentityAccessorsTest` + integration `RunTraceSessionConsistencyIT` + (W2) Flyway schema constraint. See ADR-0062.
 
-55. **W3C traceparent propagation at HTTP edge.** `agent-platform` MUST extract or originate a W3C version-00 `traceparent` on every inbound request (filter order 10, before JWT/Tenant/Idempotency), populate Logback MDC with `trace_id` + `span_id` alongside `tenant_id` + `run_id`, and emit `traceresponse: 00-<trace_id>-<server_span_id>-01` on every outbound response (200/4xx/5xx) so client SDKs can correlate. Invalid `traceparent` headers MUST fall back to originating a fresh trace (never propagate an unparseable id) and increment `springai_ascend_traceparent_invalid_total`. Enforced by `TraceExtractFilterIT` + extended `LogFieldShapeIT`. See ADR-0061 §4.
+55. **W3C traceparent propagation at HTTP edge.** `agent-service.service.platform` (HTTP edge sub-package, formerly the standalone `agent-platform` module pre-ADR-0078) MUST extract or originate a W3C version-00 `traceparent` on every inbound request (filter order 10, before JWT/Tenant/Idempotency), populate Logback MDC with `trace_id` + `span_id` alongside `tenant_id` + `run_id`, and emit `traceresponse: 00-<trace_id>-<server_span_id>-01` on every outbound response (200/4xx/5xx) so client SDKs can correlate. Invalid `traceparent` headers MUST fall back to originating a fresh trace (never propagate an unparseable id) and increment `springai_ascend_traceparent_invalid_total`. Enforced by `TraceExtractFilterIT` + extended `LogFieldShapeIT`. See ADR-0061 §4.
 
 56. **GENERATION span schema.** Every LLM invocation in posture=research/prod MUST emit a Span carrying attributes `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `langfuse.cost_usd`, and `langfuse.latency_ms`. Raw prompt/completion content MUST be stored in `PayloadStore` and referenced via `payload_ref://<id>` — never inline as a span attribute (negative invariant; see §4 #58). Direct LLM calls bypassing `HookChain` are a ship-blocking defect under Rule 9 (observability category). Enforced by ArchUnit `LlmGatewayHookChainOnlyTest` (active at L1.x — no `agent-runtime/llm/*` class may import `org.springframework.ai.chat.ChatModel` outside the `HookChain` package) + integration `GenerationSpanSchemaIT` (W2 trigger; class FQN locked here per Rule 28 contract-then-enforcer pair). See ADR-0061 §1 + ADR-0061 §7.
 
@@ -841,8 +840,8 @@ long-standing dependency on the kernel `runs.*` domain types `Run`, `RunMode`,
 - `IdempotencyRecord` entity — contract-spine entity with mandatory `tenantId` (Rule 11 target).
 - `OssApiProbeTest` — compile-time probe verifying Spring AI + Spring Boot API surface.
 - `ApiCompatibilityTest` — ArchUnit rules enforcing SPI purity and dependency direction.
-- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule 21 (L1 generalisation per ADR-0055): no `agent-runtime` main class may import any class under `ascend.springai.service.platform..`.
-- `TenantPropagationPurityTest` — ArchUnit Rule 21 (original narrow case per ADR-0023, preserved as defence-in-depth): no `agent-runtime` main class may import `TenantContextHolder`.
+- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule 21 (L1 generalisation per ADR-0055): no class under `ascend.springai.service.runtime..` (across `agent-service` + `agent-runtime-core` post-ADR-0079) may import any class under `ascend.springai.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
+- `TenantPropagationPurityTest` — ArchUnit Rule 21 (original narrow case per ADR-0023, preserved as defence-in-depth): no class under `ascend.springai.service.runtime..` may import `TenantContextHolder` (located at `agent-service.service.platform.tenant.TenantContextHolder` post-ADR-0078).
 - `Orchestrator` SPI + `GraphExecutor` + `AgentLoopExecutor` + `SuspendSignal` + `Checkpointer` — dual-mode runtime SPIs (§4 constraint #9).
 - `RunStateMachine` — DFA validator enforcing §4 #20 legal transitions; `validate/allowedTransitions/isTerminal` (Rule 20). `RunStatus.EXPIRED` added as 7th terminal value.
 - `InMemoryCheckpointer` — dev-posture in-memory checkpoint store with posture-aware 16-KiB

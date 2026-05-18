@@ -1,9 +1,27 @@
 package ascend.springai.service.runtime.resilience.spi;
 
 /**
- * Fin-services routing layer: maps an operation identifier to a named resilience policy triple.
- * Call sites apply Resilience4j annotations (@CircuitBreaker, @Retry, @TimeLimiter) using
- * the resolved policy names. Spring @ConfigurationProperties wiring is deferred to W2.
+ * Dual-surface resilience SPI. Two distinct axes intentionally co-located on a single contract:
+ *
+ * <ul>
+ *   <li><b>Operation-policy axis</b> ({@link #resolve(String)}, W0+): maps an operation identifier
+ *   to a named resilience policy triple. Call sites apply Resilience4j annotations
+ *   ({@code @CircuitBreaker}, {@code @Retry}, {@code @TimeLimiter}) using the resolved policy names.
+ *   Spring {@code @ConfigurationProperties} wiring is deferred to W2.</li>
+ *   <li><b>Skill-capacity axis</b> ({@link #resolve(String, String)}, W1.x Phase 9+): tenant + skill
+ *   admission per ADR-0070 + Rule 41.b. Consults
+ *   {@code docs/governance/skill-capacity.yaml} via {@link SkillCapacityRegistry}.</li>
+ * </ul>
+ *
+ * <p>The two axes MUST NOT be conflated. The pre-ADR-0070 plan to extend the operation-policy
+ * surface to {@code (tenantId, operationId)} (ADR-0030 §HD-C.3, ADR-0044 catalog row) is
+ * <b>superseded</b> by ADR-0070's skill axis and formally reconciled in ADR-0081 — the skill
+ * argument is the cross-cutting capacity dimension, NOT a renamed operation argument.
+ *
+ * @see <a href="../../../../../../../../../docs/adr/0030-skill-spi-lifecycle-resource-matrix.md">ADR-0030</a> operation-policy routing
+ * @see <a href="../../../../../../../../../docs/adr/0070-cursor-flow-and-skill-capacity-runtime.yaml">ADR-0070</a> skill-capacity arbitration (introduces the two-arg overload)
+ * @see <a href="../../../../../../../../../docs/adr/0080-resilience-contract-spi-package-alignment.yaml">ADR-0080</a> package home (this {@code .spi} location)
+ * @see <a href="../../../../../../../../../docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml">ADR-0081</a> dual-surface reconciliation (supersedes the (tenantId, operationId) plan)
  */
 public interface ResilienceContract {
 

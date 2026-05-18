@@ -71,6 +71,24 @@ public record MemoryMetadata(
 
 `GraphMemoryRepository` SPI remains minimal at W0. The metadata expansion is a W2 contract revision.
 
+### GraphMemoryRepository surface enumeration (rc7 doc-precision addendum, 2026-05-18)
+
+`GraphMemoryRepository` exposes a three-method multi-axis surface. The W0 shape is the SPI shell only
+(no production adapter); the three-method enumeration is stable across the W2 Graphiti reference
+adapter and any future production implementations:
+
+| Method | Axis | Notes |
+|---|---|---|
+| `addFact(tenantId, subject, relation, object, metadata)` | write | Ingests a (subject, relation, object) triple with `MemoryMetadata` envelope (provenance, ontology, confidence, expiry, redaction, visibility). |
+| `query(tenantId, subject, maxDepth)` | bounded traversal | Walks the relationship graph from `subject` up to `maxDepth` hops; returns the bounded edge frontier. |
+| `search(tenantId, queryText, topK)` | full-text | Embedding-similarity search across the indexed graph; returns top-K matches. |
+
+The three-method surface is tenant-scoped (Rule 11 first-argument tenant carrier on every method);
+W2 adapter triggers in `CLAUDE-deferred.md` (memory-and-knowledge wave) reference this enumeration as
+the contract surface to implement. ADR-0051 (Memory and Knowledge Ownership Boundary) governs whether
+each call operates on platform graph state, delegated business graph state, or both — the surface
+enumeration here is orthogonal to that ownership classification.
+
 ### Library selection (oss-bill-of-materials.md aligned)
 
 - **Graphiti (Neo4j)** — designated as the W1 reference sidecar for M4 (graph relationship memory). Listed as the example implementation in `oss-bill-of-materials.md`.

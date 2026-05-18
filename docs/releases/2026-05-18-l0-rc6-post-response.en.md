@@ -10,6 +10,8 @@ response_doc: docs/reviews/2026-05-18-l0-rc5-post-response-architecture-review-r
 
 # v2.0.0-rc6 — rc5 post-response review response (2026-05-18)
 
+> **Historical artifact frozen at SHA 78b436f** — superseded by v2.0.0-rc7 (`docs/releases/2026-05-18-l0-rc7-corrective.en.md`). Baseline counts below reflect the rc6 wave (80 ADRs, 70 gate rules, 138 self-tests, 41 active engineering rules); current canonical baseline is in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`. This release is **not retracted** — the rc7 corrective wave is additive uplift only.
+
 ## Baseline counts (post-rc6)
 
 | metric | count |

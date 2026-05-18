@@ -256,15 +256,22 @@ ArchUnit tests under
 
 ### 2.B Runtime-side concerns (subpackage `service.runtime.*`)
 
-#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0)
+#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0; SPI **owned by `agent-runtime-core` + `agent-execution-engine` post-ADR-0079**)
 
-The cognitive runtime kernel ships its SPI contracts under
-`agent-service/src/main/java/ascend/springai/service/runtime/orchestration/spi/`:
-`Orchestrator`, `RunContext`, `GraphExecutor`, `AgentLoopExecutor`,
-`SuspendSignal`, `Checkpointer`, `TraceContext`, plus the
-`ExecutorDefinition` sealed hierarchy.
+The cognitive runtime kernel's SPI contracts live in **two** modules after the
+ADR-0079 (T2.B2) engine-extraction wave (2026-05-18):
 
-Reference adapters under
+- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/`**
+  (extracted per ADR-0079) — kernel SPI types `Orchestrator`, `RunContext`,
+  `SuspendSignal`, `Checkpointer`, `TraceContext`, and the sealed
+  `ExecutorDefinition` hierarchy (`GraphDefinition` | `AgentLoopDefinition`).
+- **`agent-execution-engine/src/main/java/ascend/springai/engine/spi/`**
+  (extracted per ADR-0079) — executor adapters `GraphExecutor`,
+  `AgentLoopExecutor`, the unified `ExecutorAdapter`, `EngineHookSurface`, and
+  `EngineMatchingException`.
+
+`agent-service` owns the **posture-gated reference adapters** (not the SPI roots),
+under
 `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/`:
 `SyncOrchestrator`, `SequentialGraphExecutor`,
 `IterativeAgentLoopExecutor`, `InMemoryCheckpointer`,
@@ -276,14 +283,23 @@ implementations that fail-closed in research/prod via
 default `TraceContext` impl when no OpenTelemetry SDK is on the
 classpath.
 
-#### runtime / runs -- Run entity + state machine (W0)
+#### runtime / runs -- Run entity + state machine (W0; **owned by `agent-runtime-core` post-ADR-0079**)
 
-`agent-service/src/main/java/ascend/springai/service/runtime/runs/`:
-`Run` (immutable record), `RunStatus` (formal DFA, 7 values: PENDING,
-RUNNING, SUSPENDED, CANCELLED, SUCCEEDED, FAILED, EXPIRED), `RunMode`,
-`RunStateMachine` (validates every `withStatus(newStatus)` transition;
-illegal transitions throw `IllegalStateException` per Rule 20),
-`RunRepository` SPI.
+After the ADR-0079 engine-extraction wave (2026-05-18), the Run entity, state
+machine, and `RunRepository` SPI live in the shared kernel module
+`agent-runtime-core`, not in `agent-service`:
+
+- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/`** —
+  `Run` (immutable record), `RunStatus` (formal DFA, 7 values: PENDING,
+  RUNNING, SUSPENDED, CANCELLED, SUCCEEDED, FAILED, EXPIRED), `RunMode`
+  discriminator, `RunStateMachine` (validates every `withStatus(newStatus)`
+  transition; illegal transitions throw `IllegalStateException` per Rule 20).
+- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/`** —
+  `RunRepository` SPI (interface only; pure Java per Rule 32).
+
+`agent-service` owns no `runs/` kernel types post-ADR-0079; its only contribution
+on the runs axis is the posture-gated `InMemoryRunRegistry` reference adapter
+under `agent-service/.../runtime/orchestration/inmemory/` listed above.
 
 #### runtime / resilience -- Operation-routing SPI (W0, **`.spi` package home per ADR-0080**)
 

@@ -1662,23 +1662,26 @@ fi
 # Rule 54 positive: DefaultSkillResilienceContract has two-arg resolve + tryAcquire
 # ---------------------------------------------------------------------------
 _r54_pos="$scratch/r54_pos"
-mkdir -p "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience"
-cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/SkillCapacityRegistry.java" <<'EOF'
-package ascend.springai.service.runtime.resilience;
+mkdir -p "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi"
+cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SkillCapacityRegistry.java" <<'EOF'
+package ascend.springai.service.runtime.resilience.spi;
 public interface SkillCapacityRegistry { boolean tryAcquire(String t, String s); }
 EOF
-cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/SkillResolution.java" <<'EOF'
-package ascend.springai.service.runtime.resilience;
+cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SkillResolution.java" <<'EOF'
+package ascend.springai.service.runtime.resilience.spi;
 public record SkillResolution(boolean admitted, Object reasonIfRejected) {}
 EOF
-cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/SuspendReason.java" <<'EOF'
-package ascend.springai.service.runtime.resilience;
+cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SuspendReason.java" <<'EOF'
+package ascend.springai.service.runtime.resilience.spi;
 public sealed interface SuspendReason permits SuspendReason.RateLimited {
   record RateLimited(String s, String c) implements SuspendReason {}
 }
 EOF
 cat > "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/DefaultSkillResilienceContract.java" <<'EOF'
 package ascend.springai.service.runtime.resilience;
+import ascend.springai.service.runtime.resilience.spi.SkillCapacityRegistry;
+import ascend.springai.service.runtime.resilience.spi.SkillResolution;
+import ascend.springai.service.runtime.resilience.spi.SuspendReason;
 public class DefaultSkillResilienceContract {
   private final SkillCapacityRegistry registry;
   public DefaultSkillResilienceContract(SkillCapacityRegistry r) { this.registry = r; }
@@ -1689,17 +1692,36 @@ public class DefaultSkillResilienceContract {
 }
 EOF
 _r54_pos_ok=1
-for _r54_f in SkillCapacityRegistry SkillResolution SuspendReason DefaultSkillResilienceContract; do
-  if [[ ! -f "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/${_r54_f}.java" ]]; then
+for _r54_f in SkillCapacityRegistry SkillResolution SuspendReason; do
+  if [[ ! -f "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/${_r54_f}.java" ]]; then
     _r54_pos_ok=0
   fi
 done
+if [[ ! -f "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/DefaultSkillResilienceContract.java" ]]; then
+  _r54_pos_ok=0
+fi
 if [[ "$_r54_pos_ok" -eq 1 ]] \
    && grep -qE 'SkillResolution[[:space:]]+resolve\([[:space:]]*String[[:space:]]+\w+,[[:space:]]*String[[:space:]]+\w+[[:space:]]*\)' "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/DefaultSkillResilienceContract.java" \
    && grep -qE 'tryAcquire\(' "$_r54_pos/agent-service/src/main/java/ascend/springai/service/runtime/resilience/DefaultSkillResilienceContract.java"; then
-  ok "rule54_skill_capacity_runtime_pos" "DefaultSkillResilienceContract has two-arg resolve + tryAcquire"
+  ok "rule54_skill_capacity_runtime_pos" "DefaultSkillResilienceContract (impl in parent) has two-arg resolve + tryAcquire, SPI types under .spi/ per ADR-0080"
 else
-  fail "rule54_skill_capacity_runtime_pos" "expected canonical class shape"
+  fail "rule54_skill_capacity_runtime_pos" "expected canonical class shape under .spi/ + impl in parent"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 54 ADR-0080 negative: SPI types in pre-ADR-0080 parent package (no .spi) must FAIL
+# ---------------------------------------------------------------------------
+_r54_pre_spi="$scratch/r54_pre_spi"
+mkdir -p "$_r54_pre_spi/agent-service/src/main/java/ascend/springai/service/runtime/resilience"
+cat > "$_r54_pre_spi/agent-service/src/main/java/ascend/springai/service/runtime/resilience/SkillCapacityRegistry.java" <<'EOF'
+package ascend.springai.service.runtime.resilience;
+public interface SkillCapacityRegistry { boolean tryAcquire(String t, String s); }
+EOF
+# Verify the .spi/ directory is absent — Rule 54 production check looks for spi/ specifically.
+if [[ -d "$_r54_pre_spi/agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi" ]]; then
+  fail "rule54_pre_adr_0080_layout_neg" "negative fixture must not contain .spi/ directory"
+else
+  ok "rule54_pre_adr_0080_layout_neg" "pre-ADR-0080 parent-package layout correctly absent of .spi/ — Rule 54 would FAIL the gate"
 fi
 
 # ---------------------------------------------------------------------------
@@ -3917,6 +3939,153 @@ fi
 
 }
 
+# ===========================================================================
+# 2026-05-18 rc6 post-response review response prevention wave -- Rules 86-87
+# Authority: docs/governance/rules/rule-86.md + rule-87.md
+# Closes finding families:
+#   P0-2 root ARCHITECTURE.md 8-module + stale path claims -> Rule 86
+#   P1-2 architecture-status.yaml allowed_claim stale module names -> Rule 87
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Rule 86 positive: root ARCHITECTURE.md 9-module claim matches pom.xml + status yaml
+# ---------------------------------------------------------------------------
+_r86_pos_root="$scratch/r86_pos"
+mkdir -p "$_r86_pos_root/docs/governance"
+mkdir -p "$_r86_pos_root/agent-service/src/main/java/ascend/springai/service/platform"
+cat > "$_r86_pos_root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-client</module>
+    <module>agent-service</module>
+    <module>agent-runtime-core</module>
+    <module>agent-middleware</module>
+    <module>agent-execution-engine</module>
+    <module>agent-bus</module>
+    <module>agent-evolve</module>
+    <module>spring-ai-ascend-dependencies</module>
+    <module>spring-ai-ascend-graphmemory-starter</module>
+  </modules>
+</project>
+POMEOF
+cat > "$_r86_pos_root/docs/governance/architecture-status.yaml" <<'YEOF'
+repository_counts:
+  reactor_modules: 9
+YEOF
+cat > "$_r86_pos_root/ARCHITECTURE.md" <<'DOCEOF'
+# Architecture
+The reactor declares **9 modules** today.
+Path claim: `agent-service/src/main/java/ascend/springai/service/platform`
+DOCEOF
+_r86_pos_pom=$(awk '/<modules>/,/<\/modules>/' "$_r86_pos_root/pom.xml" | grep -cE '^[[:space:]]*<module>')
+_r86_pos_status=$(awk '/^repository_counts:/{flag=1; next} flag && /^[a-z]/{flag=0} flag' "$_r86_pos_root/docs/governance/architecture-status.yaml" | grep -oE 'reactor_modules:[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')
+_r86_pos_claim=$(grep -oE '\*\*[0-9]+ modules\*\*' "$_r86_pos_root/ARCHITECTURE.md" | grep -oE '[0-9]+' | head -1)
+if [[ "$_r86_pos_pom" == "9" ]] && [[ "$_r86_pos_status" == "9" ]] && [[ "$_r86_pos_claim" == "9" ]]; then
+  ok "rule86_root_architecture_count_pos" "root ARCHITECTURE.md count 9 matches pom.xml + status_yaml canonical 9"
+else
+  fail "rule86_root_architecture_count_pos" "expected 9 across all three sources, got pom=$_r86_pos_pom status=$_r86_pos_status claim=$_r86_pos_claim"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 86 negative: root ARCHITECTURE.md claims 8 modules but pom.xml has 9
+# ---------------------------------------------------------------------------
+_r86_neg_root="$scratch/r86_neg"
+mkdir -p "$_r86_neg_root/docs/governance"
+cat > "$_r86_neg_root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-client</module>
+    <module>agent-service</module>
+    <module>agent-runtime-core</module>
+    <module>agent-middleware</module>
+    <module>agent-execution-engine</module>
+    <module>agent-bus</module>
+    <module>agent-evolve</module>
+    <module>spring-ai-ascend-dependencies</module>
+    <module>spring-ai-ascend-graphmemory-starter</module>
+  </modules>
+</project>
+POMEOF
+cat > "$_r86_neg_root/docs/governance/architecture-status.yaml" <<'YEOF'
+repository_counts:
+  reactor_modules: 9
+YEOF
+cat > "$_r86_neg_root/ARCHITECTURE.md" <<'DOCEOF'
+# Architecture
+The reactor declares **8 modules** today.
+DOCEOF
+_r86_neg_pom=$(awk '/<modules>/,/<\/modules>/' "$_r86_neg_root/pom.xml" | grep -cE '^[[:space:]]*<module>')
+_r86_neg_claim=$(grep -oE '\*\*[0-9]+ modules\*\*' "$_r86_neg_root/ARCHITECTURE.md" | grep -oE '[0-9]+' | head -1)
+# Check that the active claim disagrees with canonical AND has no historical marker
+_r86_neg_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated|merged'
+if [[ "$_r86_neg_claim" != "$_r86_neg_pom" ]] && ! grep -qiE "$_r86_neg_marker_re" "$_r86_neg_root/ARCHITECTURE.md"; then
+  ok "rule86_root_architecture_count_neg" "active 8-module claim with canonical 9 and no historical marker correctly flagged"
+else
+  fail "rule86_root_architecture_count_neg" "expected drift detection: claim=$_r86_neg_claim canonical=$_r86_neg_pom marker_present=$(grep -qiE \"$_r86_neg_marker_re\" \"$_r86_neg_root/ARCHITECTURE.md\" && echo yes || echo no)"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 87 positive: allowed_claim with historical-marker-guarded module name passes
+# ---------------------------------------------------------------------------
+_r87_pos_root="$scratch/r87_pos"
+mkdir -p "$_r87_pos_root/docs/governance"
+cat > "$_r87_pos_root/docs/governance/architecture-status.yaml" <<'YEOF'
+capabilities:
+  example:
+    status: ok
+    allowed_claim: "Pre-Phase-C historical context: the original agent-platform module was consolidated into agent-service per ADR-0078 (2026-05-18). Today the platform layer lives at agent-service.service.platform."
+YEOF
+_r87_pos_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
+_r87_pos_lineno=0
+_r87_pos_violation=0
+while IFS= read -r _r87_pos_line || [[ -n "$_r87_pos_line" ]]; do
+  _r87_pos_lineno=$((_r87_pos_lineno + 1))
+  echo "$_r87_pos_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
+  _r87_pos_value=$(echo "$_r87_pos_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
+  _r87_pos_stale=$(echo "$_r87_pos_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+  [[ -z "$_r87_pos_stale" ]] && continue
+  _r87_pos_lo=$((_r87_pos_lineno > 3 ? _r87_pos_lineno - 3 : 1))
+  _r87_pos_hi=$((_r87_pos_lineno + 3))
+  if sed -n "${_r87_pos_lo},${_r87_pos_hi}p" "$_r87_pos_root/docs/governance/architecture-status.yaml" 2>/dev/null | grep -qiE "$_r87_pos_marker_re"; then continue; fi
+  _r87_pos_violation=1
+done < "$_r87_pos_root/docs/governance/architecture-status.yaml"
+if [[ $_r87_pos_violation -eq 0 ]]; then
+  ok "rule87_status_yaml_allowed_claim_pos" "historical-marker-guarded allowed_claim correctly accepted"
+else
+  fail "rule87_status_yaml_allowed_claim_pos" "expected historical marker to exempt allowed_claim"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 87 negative: allowed_claim with bare current-tense agent-platform fails
+# ---------------------------------------------------------------------------
+_r87_neg_root="$scratch/r87_neg"
+mkdir -p "$_r87_neg_root/docs/governance"
+cat > "$_r87_neg_root/docs/governance/architecture-status.yaml" <<'YEOF'
+capabilities:
+  example:
+    status: ok
+    allowed_claim: "Service Layer (agent-platform HTTP edge + agent-runtime cognitive runtime) deployed as long-running microservices."
+YEOF
+_r87_neg_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
+_r87_neg_lineno=0
+_r87_neg_flagged=0
+while IFS= read -r _r87_neg_line || [[ -n "$_r87_neg_line" ]]; do
+  _r87_neg_lineno=$((_r87_neg_lineno + 1))
+  echo "$_r87_neg_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
+  _r87_neg_value=$(echo "$_r87_neg_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
+  _r87_neg_stale=$(echo "$_r87_neg_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+  [[ -z "$_r87_neg_stale" ]] && continue
+  _r87_neg_lo=$((_r87_neg_lineno > 3 ? _r87_neg_lineno - 3 : 1))
+  _r87_neg_hi=$((_r87_neg_lineno + 3))
+  if sed -n "${_r87_neg_lo},${_r87_neg_hi}p" "$_r87_neg_root/docs/governance/architecture-status.yaml" 2>/dev/null | grep -qiE "$_r87_neg_marker_re"; then continue; fi
+  _r87_neg_flagged=1
+done < "$_r87_neg_root/docs/governance/architecture-status.yaml"
+if [[ $_r87_neg_flagged -eq 1 ]]; then
+  ok "rule87_status_yaml_allowed_claim_neg" "bare current-tense agent-platform allowed_claim correctly flagged (no historical marker in +/-3 lines)"
+else
+  fail "rule87_status_yaml_allowed_claim_neg" "expected stale-module detection in allowed_claim"
+fi
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
@@ -3926,7 +4095,7 @@ fi
 # to a per-batch file. After all batches complete, we sort + concatenate the
 # results for deterministic stdout, then count PASS/FAIL.
 # ---------------------------------------------------------------------------
-TOTAL=138
+TOTAL=143
 
 _pre4_all_tests=$(declare -F | awk '/^declare -f test_rule/{print $3}' | sort)
 _pre4_jobs="${GATE_PARALLELISM_JOBS:-8}"

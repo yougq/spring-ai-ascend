@@ -27,10 +27,17 @@
 # (80-83, ~1.7K) raised CLAUDE.md to ~29,800. Ceiling raised from 28,000 to
 # 32,000 — future PR2 still targets 8,000 via kernel-shrink. Headroom of ~2.2K
 # bytes admits one more small rule wave.
-CLAUDE.md=32000
+# 2026-05-18 rc5 post-response wave: +2 rules (84-85, ~1.1K) raised CLAUDE.md
+# to ~31,800 (still under 32,000).
+# 2026-05-18 rc6 post-response wave (rc7 corrective): +2 rules (86-87, ~1.7K)
+# raised CLAUDE.md to ~33,800. Ceiling raised from 32,000 to 36,000 — future
+# PR2 still targets 8,000 via kernel-shrink. Same wave's architecture-status.yaml
+# allowed_claim rewrites + baseline_metrics increment raised it from ~99K to
+# ~101K; ceiling raised from 100,000 to 105,000.
+CLAUDE.md=36000
 ARCHITECTURE.md=80000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
 docs/governance/architecture-graph.yaml=130000
-docs/governance/architecture-status.yaml=100000
+docs/governance/architecture-status.yaml=105000
 docs/CLAUDE-deferred.md=0

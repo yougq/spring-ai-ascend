@@ -431,6 +431,22 @@ Enforced by [`rule-85.md`](docs/governance/rules/rule-85.md).
 
 ---
 
+### rc6 post-response review response prevention wave (2026-05-18)
+#### Rule 86 — Root ARCHITECTURE Count + Path Truth
+
+**Every numeric module-count claim in root `ARCHITECTURE.md` matching `\b[0-9]+-module\b`, `\b[0-9]+ modules\b`, or `\b[0-9]+ reactor modules\b` (outside fenced code blocks and YAML frontmatter) MUST equal the count of `<module>` entries in root `pom.xml` AND `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`. Every `<module>/src/main/java/...` path claim in root `ARCHITECTURE.md` (outside fenced code blocks) MUST resolve to a real path on disk OR carry a historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deferred`, `moved`, `extracted per ADR-NNNN`) within ±3 lines. Operationalises rc6 post-response review P0-2 closure (Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers root).**
+
+Enforced by [`rule-86.md`](docs/governance/rules/rule-86.md).
+
+---
+#### Rule 87 — Status YAML Allowed Claim Module Name Truth
+
+**Every `allowed_claim:` text value in `docs/governance/architecture-status.yaml` MUST NOT contain a current-tense reference to the pre-Phase-C module names `agent-platform` or `agent-runtime` (the latter NOT matching `agent-runtime-core`) outside an explicit historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deprecated`, `archived`) within ±3 lines of the same claim. Operationalises rc6 post-response review P1-2 closure: ledger `allowed_claim:` text cannot drift to deleted module names while structured `repository_counts` correctly declares the post-ADR-0078 9-module topology.**
+
+Enforced by [`rule-87.md`](docs/governance/rules/rule-87.md).
+
+---
+
 ## Deferred Rules
 
 On-demand: [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md). Currently deferred: Rules 7, 8, 13, 14, 15, 16, 17, 18, 19, 22, 23, 26, 27 + sub-clauses (Rules 11, 24, 29.c, 72 activated 2026-05-18 per Wave 4).

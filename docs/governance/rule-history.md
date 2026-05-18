@@ -107,6 +107,17 @@ Authority documents: `docs/reviews/2026-05-18-l0-rc5-post-response-architecture-
 
 ---
 
+## 2026-05-18 — Rules 86-87 added + ADR-0081 + RunRepository/GraphMemoryRepository surface enumeration (rc6 post-response review response prevention wave, v2.0.0-rc7)
+
+- **Rule 86** `root_architecture_count_and_path_truth` — closes rc6 post-response review P0-2 (`ARCHITECTURE.md:77-79` declared "Eight-module post-Phase-C state" + "**8 modules**" while `pom.xml` had 9 and `architecture-status.yaml#repository_counts.reactor_modules: 9`; tree lines 140-193 listed deleted `agent-platform/` + `agent-runtime/` as current). Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers the L0 root entrypoint. Enforcer E119.
+- **Rule 87** `status_yaml_allowed_claim_module_name_truth` — closes rc6 post-response review P1-2 (`architecture-status.yaml` `allowed_claim:` text at lines 720 / 1054 / 1391 / 1409 carried current-tense `agent-platform` + `agent-runtime` references after Phase C deleted those modules; family self-check found the 4th spot at line 720 the reviewer missed). Negative-lookahead on `agent-runtime-core` (the new shared-kernel module from ADR-0079). Enforcer E120.
+- **ADR-0081** "ResilienceContract dual-surface reconciliation" — closes rc6 P1-1: formally codifies that ResilienceContract is dual-surface (operation-policy `resolve(operationId)` + skill-capacity `resolve(tenant, skill)` per ADR-0070, Rule 41.b) and SUPERSEDES the pre-ADR-0070 plan in ADR-0030 / ADR-0044 to extend the operation surface to `(tenantId, operationId)`. Java surface unchanged; contract catalog + ADR-0030 + ADR-0044 + ResilienceContract.java Javadoc amended in place with @see cross-refs.
+- **ADR-0021 + ADR-0034 doc-precision addendum** — `RunRepository` 6-method surface (findById, save, findByTenant, findByParentRunId, findByTenantAndStatus, findRootRuns) and `GraphMemoryRepository` 3-method surface (addFact, query, search) explicitly enumerated to harden multi-axis SPI documentation discipline alongside the F-β1 reconciliation. Per-method axis classification recorded so W2 implementers have a stable target surface.
+
+Authority documents: `docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md` (review) and `docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review-response.en.md` (response).
+
+---
+
 ## Retired-rule notes
 
 ### Rule 12 — Maturity L0–L4

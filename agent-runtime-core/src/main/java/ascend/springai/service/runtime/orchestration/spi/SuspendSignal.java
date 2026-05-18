@@ -41,7 +41,7 @@ public final class SuspendSignal extends Exception {
     private final RunMode childMode;             // null when isClientCallback()
     private final ExecutorDefinition childDef;   // null when isClientCallback()
     private final Object clientCallback;         // typed Object for SPI purity (E3); actual type
-                                                  // is ascend.springai.service.runtime.s2c.S2cCallbackEnvelope.
+                                                  // is ascend.springai.service.runtime.s2c.spi.S2cCallbackEnvelope.
                                                   // Orchestrators in non-spi packages cast it.
 
     /** Child-run constructor (legacy, W0+). All four args required. */

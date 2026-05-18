@@ -74,7 +74,7 @@ Three authoritative sources disagree on the `embeddingModel*` field name:
 | `RunRepository` | tenant-scoped | explicit `tenantId` arg on `findByTenant*` | unchanged |
 | `Checkpointer` | run-scoped | implicit via `runId` uniqueness | unchanged (ADR-0027) |
 | `GraphMemoryRepository` | tenant-scoped | explicit `tenantId` first arg (every method, Rule 11) | unchanged |
-| `ResilienceContract` | operation-scoped | no tenant param at W0 | tenant-aware `(tenantId, operationId)` at W2 (ADR-0030) |
+| `ResilienceContract` | dual-surface (operation-policy + skill-capacity) | W0: single-arg `resolve(operationId)` (no tenant param); W1.x Phase 9+: two-arg `resolve(tenant, skill)` via `SkillCapacityRegistry` (ADR-0070, Rule 41.b) | Operation-policy axis only; the original `(tenantId, operationId)` extension plan is **superseded** by ADR-0070 / ADR-0081 — skill capacity uses `(tenant, skill)`, NOT `(tenantId, operationId)` |
 | `Orchestrator` | tenant-scoped | explicit `tenantId` arg in `run(runId, tenantId, ...)` | unchanged |
 | `GraphExecutor` | tenant-scoped | via injected `RunContext.tenantId()` | unchanged |
 | `AgentLoopExecutor` | tenant-scoped | via injected `RunContext.tenantId()` | unchanged |
