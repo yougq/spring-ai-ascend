@@ -95,6 +95,18 @@ status: proposed
   - **Session 级动态装配**：Service 负责管理交互会话生命周期，通过 `ContextProjector` 算法从 Session 海量历史中“语义投影”出最相关的片段，装配成 `InjectedContext` 喂给 Engine，彻底解放引擎的状态管理负担。
   - **Memory 级认知沉淀**：Service 在 Task 完成或挂起后，负责将 `StateDelta` 同步至中间件和演进平台，进行长程记忆的提取、知识沉淀及智能体演进。
 
+### 1.6 Message-Centric 数据域与 Task-Centric 控制域的分离原则
+为了支撑智能体对自然语言的灵活理解，同时保障分布式微服务内核的确定性，必须在 Service 接口层与 Engine SPI 契约中确立“编译期与运行期”解耦原则：
+
+- **Message 与 Task 的定义分离**：
+  - **Message（消息载荷）**：属于 **数据域（Data Plane）**，本质是非结构化/半结构化的自然语言文本（Natural Language Content），代表用户意图或交互事实。
+  - **Task（任务控制体）**：属于 **控制域（Control Plane）**，是拥有生命周期和确定性参数的强类型结构化执行实体。
+- **接口转换契约分离（Metaphor: Natural Language Compiler）**：
+  - **入参（Inbound）解耦**：当 Service 接收到自然语言请求（Message）时，不得将 Message 直接投给引擎，而必须将其包装并升格为强类型的 **Task（附带 InjectedContext 装配好的历史消息载荷）** 发送给引擎。
+  - **出参（Outbound）解耦**：
+    - *自然语言响应*：当引擎执行完毕（Completed）输出响应消息时，通过 `StateDelta` 中的 `newMessages` 数据域包装自然语言，传递给 Service。
+    - *控制逻辑交互（如 A2A 拆分）*：当引擎推理出需要协作或挂起（Yield）时，**禁止通过自然语言文本向服务层表达其调用意图**（极大降低了脆弱性）。引擎必须通过 `StateDelta` 显式返回强类型的 **Task 中断原语（如 SubTaskAwaitSignal 强类型控制体）**，把 A2A 寻址、子任务路由、建链等底层网络动作完全交给 Service（即智能体操作系统 OS Kernel）去物理执行。
+
 ## 2. 场景视图 (Scenarios View)
 本设计方案覆盖的核心业务运作场景如下：
 
@@ -143,7 +155,7 @@ status: proposed
   - **Session 层**：完全由 Service 的 `SessionManager` 及 `ContextProjector` 组件托管，负责对 Session 进行语义投影。
   - **Task 层控制面**：由 `TaskCenter`、`PolymorphicDispatcher` 以及 A2A 状态控制组件负责控制流编排、任务排队与脱水存储。
 * **智能体执行引擎（agent-execution-engine）执行层**：
-  - **Task 层执行面**：Engine 接受 `InjectedContext` 载荷，成为 Task 的具体算法执行器。
+  - **Task 层执行面（引擎核心 SPI 契约）**：Engine 接受结构化的 `TaskSpec` 与 `InjectedContext` 载荷，成为 Task 的具体算法无状态执行芯片（对 Engine 屏蔽自然语言 Message 级的 Session 数据）。
   - **Run 层**：完全属于 Engine 内部实现，驱动 Workflow 节点转换（Node Run）与 ReAct 思考循环（Loop Run）。
 
 ## 4. 进程视图 (Process View)
@@ -269,5 +281,74 @@ public interface InterruptSignal {
     String getTaskId();
     InterruptType getType();
     Map<String, Object> getPayload();
+}
+```
+
+### 7.2 StatelessEngineExecutor 引擎核心契约接口定义
+此接口作为 `agent-service` 驱动 `agent-execution-engine` 的最底层无状态核心契约，任何引擎适配器均需实现并遵循此契约：
+
+```java
+package com.huawei.ascend.agent.service.engine.spi;
+
+import com.huawei.ascend.agent.service.api.InterruptSignal;
+import java.util.List;
+import java.util.Map;
+import reactor.core.publisher.Mono;
+
+/**
+ * 智能体执行引擎核心无状态计算接口 (Engine SPI Contract)
+ * 被后续 agent-execution-engine 设计所直接引用并实现
+ */
+public interface StatelessEngineExecutor {
+    /**
+     * 无状态执行入口：输入任务定义与投影上下文，输出执行 Delta 增量
+     */
+    Mono<StateDelta> execute(TaskSpec task, InjectedContext ctx);
+}
+
+/**
+ * 强类型任务定义定义
+ */
+public class TaskSpec {
+    private String taskId;
+    private String taskType;                  // WORKFLOW 或是 REACT
+    private Map<String, Object> parameters;   // 控制性参数
+    
+    // Getters and Setters...
+}
+
+/**
+ * 投影注入上下文 (100% 显式注入，杜绝引擎自主 I/O)
+ */
+public class InjectedContext {
+    private String sessionId;
+    private List<Message> messageHistory;      // 语义投影算法装配好的历史交互消息列表
+    private List<Map<String, Object>> tools;   // 本轮可用物理工具集定义 (Tool Definitions)
+    private Map<String, Object> sessionVars;   // 本轮会话临时上下文变量 (Session Variables)
+    
+    // Getters and Setters...
+}
+
+/**
+ * Message 数据域模型 (标准消息载荷，供 InjectedContext 承载)
+ */
+public class Message {
+    private String messageId;
+    private String role;                      // USER, ASSISTANT, SYSTEM
+    private String content;                   // 自然语言内容 (Natural Language Content)
+    private long timestamp;
+    
+    // Getters and Setters...
+}
+
+/**
+ * 引擎执行输出状态增量包
+ */
+public class StateDelta {
+    private List<Message> newMessages;         // 计算产生的新消息载荷 (自然语言返回)
+    private Map<String, Object> updatedVars;   // 产生变化的会话变量
+    private InterruptSignal interruptSignal;   // 若引擎中断(Yield)，携带强类型控制中断包；若计算完结(Completed)则为 null
+    
+    // Getters and Setters...
 }
 ```
