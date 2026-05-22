@@ -14,14 +14,14 @@ status: proposed
 > **目标 Wave:** W0/W1 (立即执行)
 > **关联军规:** Rule G-1.c (L1 深度与落地), Rule R-G (响应式 I/O), Rule R-M (引擎剥离)
 
-## 1. 逻辑视图 (Logical View)
+## 1. 背景与原则 (Background & Principles)
 
-## 2. 进程视图 (Process View)
+## 2. 逻辑视图 (Logical View)
 
-## 3. 开发视图 (Development View)
+## 3. 进程视图 (Process View)
 
-## 4. 场景视图 (Scenarios View)
+## 4. 开发视图 (Development View)
 
-## 5. 设计要点深度分解 (Deep-Dive Points)
+## 5. 场景视图 (Scenarios View)
 
 ## 6. 附录：核心 SPI 接口 (Appendix: Core SPI Interfaces)
