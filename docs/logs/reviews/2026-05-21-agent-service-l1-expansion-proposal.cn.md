@@ -40,7 +40,7 @@ status: proposed
   - **成熟开源引入（Bus/Middleware）**：对于 `agent-bus`（总线）与 `agent-middleware`（中间件），本阶段主要引入业界成熟的开源技术栈（如 NATS/RabbitMQ/Redis 存储/向量库等），做轻量适配集成，拒绝闭门造车，全力保障核心链路的交付速度。
 - **部署模式演进 roadmap**：
   - **当前阶段**：优先打通并完整实现**平台中心模式 (Platform-Centric Mode)**，快速跑通端到端核心用例，实现业务闭环。
-  - **下一阶段**：全面落地支持**业务中心模式 (Business-Centric Mode)**。虽然该模式在本阶段暂不交付，但**当前阶段的 L1 架构与 SPI 接口设计必须前置深度考虑该模式 Rar 隔离和多态调用语义**，确保未来切换时业务零改动。
+  - **下一阶段**：全面落地支持**业务中心模式 (Business-Centric Mode)**。虽然该模式在本阶段暂不交付，但**当前阶段的 L1 架构与 SPI 接口设计必须前置深度考虑该模式的隔离和多态调用语义**，确保未来切换时业务零改动。
 
 ### 1.3 设计原则与核心形态
 `agent-service` 在 L1 层的设计中必须严格遵循以下原则，以支撑核心的智能体形态和业务演进诉求：
@@ -70,6 +70,10 @@ status: proposed
   - *空间维度*：支持同节点内（Intra-node）进程级方法互调，亦支持跨节点（Cross-node）跨网络的 A2A 分布式调用。
   - *生命周期维度*：支持实时动态拆分与派生的子智能体（Dynamic Sub-agents）的临时协作与生命周期纳管，也支持与预先存在的、长时生存的独立智能体（Long-lived Agents）之间的平级协作。
 - **谷歌 `a2a-java` 协议栈集成**：底层统一引入 A2A 协议标准，通过谷歌官方 Java 实现的 **`a2a-java`** SDK 封装端到端的握手、通道建链、多路由管理及会话关联，确保协议级标准化。
+
+#### 1.3.6 Task-Centric 状态控制与 A2A 中断信号体系
+- **任务中心型状态机定位（Task-Centric Model）**：摒弃传统以 Session（会话）为主线的同步阻塞模式，全面重构为以 **A2A 标准任务生命周期状态**为核心的调度体系，支持任务的提交、执行、异步挂起和最终完成。
+- **显式无状态中断信号机制（Explicit Interrupt Primitives）**：废除基于传统 Java 异常（Exception）抛出的隐式中断。引擎在遇到各种异步、外部等待时，必须向外抛出显式的、强类型的**中断信号（Interrupt Signals）**，触发 Service 层的脱水存储与上下文持久化，从而在根本上保持执行线程的高并发和非阻塞。
 
 ## 2. 场景视图 (Scenarios View)
 本设计方案覆盖的核心业务运作场景如下：
@@ -108,6 +112,10 @@ status: proposed
   - **A2A Server 端接口**：监听并在 `api/` 北向层统一收口，负责接收来自其他智能体（跨节点或进程内）发起的对等 A2A 协作请求。
   - **A2A Client 客户端接口**：提供统一的 outbound 路由套接字，供执行引擎或编排器向远端智能体投递协作包（Envelopes）。
 
+### 3.5 Task-Centric 状态控制体系与信号派发组件
+- **A2A 状态控制组件**：严格依照 A2A 协议规范，追踪与维护任务的五个核心状态变迁，对外暴露统一的监控和主动中止/重试接口。
+- **中断信号拦截器**：拦截来自执行层抛出的 `InterruptSignal`，智能识别中断子类型（如等待输入、等待工具、等待协同、安全风控等），并多态化派发至特定的生命周期管理器。
+
 ## 4. 进程视图 (Process View)
 聚焦于任务的状态流转与非阻塞响应式背压流控：
 
@@ -144,8 +152,46 @@ status: proposed
 - `agent-service.jar` 与 `agent-execution-engine.jar` 作为一个进程（如一个 Pod 或边缘容器）整体打包，共享同一物理运行空间。内部事件队列和任务控制状态全部托管在 JVM 堆内存中，零网络开销。 A2A 调用在此拓扑下自动降级为高效的内存进程间方法调用。
 
 ### 6.2 存量解耦/异构微服务部署拓扑 (Decoupled Service Deployment)
-- `agent-service` 作为主管控实例集中部署，通过网络（总线/网关）连接独立的、在边缘或客户内网运行的 `agent-execution-engine` 集群或存量第三方智能体执行实例。
+- `agent-service` 作为主管控实例集中部署，通过网络（总线/网关）连接独立的、在边缘或客户内网运行 of `agent-execution-engine` 集群或存量第三方智能体执行实例。
 - **多实例无状态模式**：多台 `agent-service` 管控节点共享外部的 Redis 缓存集群和关系/文档数据库（Task Store）。内部事件队列被拉偏至外部中间件实现（或通过 NATS 衔接），节点任意水平伸缩。
 - **A2A 对等网络组网**：各 `agent-service` 服务实例对外暴露 A2A Listener 端口，利用 `a2a-java` 在分布式环境中构建对等图谱网络，通过 A2A 总线交换异步协作数据。
 
 ## 7. 附录：核心 SPI 接口 (Appendix: Core SPI Interfaces)
+
+### 7.1 A2A 标准任务生命周期与中断类型定义
+```java
+package com.huawei.ascend.agent.service.api;
+
+import java.util.Map;
+
+/**
+ * A2A 标准任务生命周期状态
+ */
+public enum TaskState {
+    SUBMITTED,   // 任务已提交，进入队列排队
+    WORKING,     // 执行引擎加载上下文并开始计算
+    SUSPENDED,   // 发生中断挂起，上下文已物理脱水
+    COMPLETED,   // 计算成功，输出增量 Delta
+    FAILED       // 发生异常，计算中止
+}
+
+/**
+ * A2A 标准中断原语类型
+ */
+public enum InterruptType {
+    INPUT_REQUIRED,   // 用户交互中断（Human-in-the-Loop 索要输入或审批）
+    SUB_TASK_AWAIT,   // 子智能体拆分/外部 A2A 节点协作等待
+    TOOL_EXECUTION,   // 引擎需要服务层代理调用某一物理工具
+    DELAY_AWAIT,      // 时间窗/定时延时挂起
+    POLICY_APPROVAL   // 预算限额、安全或审计等风控审批挂起
+}
+
+/**
+ * A2A 强类型中断信号定义
+ */
+public interface InterruptSignal {
+    String getTaskId();
+    InterruptType getType();
+    Map<String, Object> getPayload();
+}
+```
