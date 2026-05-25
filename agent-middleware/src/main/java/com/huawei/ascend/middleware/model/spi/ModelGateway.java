@@ -1,6 +1,7 @@
 package com.huawei.ascend.middleware.model.spi;
 
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Tenant-scoped LLM invocation boundary.
@@ -35,6 +36,43 @@ public interface ModelGateway {
      * @return the model's response; never null.
      */
     ModelResponse invoke(ModelInvocation invocation);
+
+    /**
+     * Stream the model response as a sequence of chunks. The default
+     * implementation throws {@link UnsupportedOperationException};
+     * implementations override when the underlying provider supports
+     * streaming (server-sent events / WebSocket / chunked HTTP). The
+     * terminal {@link ModelResponseChunk.Complete} chunk carries the
+     * assembled {@link ModelResponse}.
+     *
+     * <p>Authority: ADR-0129, schema at
+     * {@code docs/contracts/model-streaming.v1.yaml}.
+     *
+     * <p>Hook binding: {@code HookPoint.BEFORE_LLM} fires once with
+     * {@link ModelInvocation} before stream open;
+     * {@code HookPoint.AFTER_LLM} fires once with the terminal
+     * {@code Complete.finalResponse()}. Per-chunk hooks are not
+     * declared at L0.
+     *
+     * <p>SPI purity per Rule R-D: the return type is
+     * {@link java.util.stream.Stream} — Reactor {@code Flux} is
+     * deliberately not in the SPI surface; the adapter implementation
+     * bridges provider-native reactive types into a virtual-thread
+     * friendly iterator behind this signature.
+     *
+     * @param invocation tenant-scoped invocation; never null.
+     * @return a finite ordered stream of chunks; never null. The stream
+     *         MUST contain at most one {@link ModelResponseChunk.Complete}
+     *         element which MUST be the last.
+     */
+    default Stream<ModelResponseChunk> stream(ModelInvocation invocation) {
+        Objects.requireNonNull(invocation, "invocation");
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName()
+                        + ": streaming is design-only at L0; "
+                        + "W2 LLM gateway wave wires Spring AI ChatModel.stream(...) "
+                        + "behind virtual-thread isolation.");
+    }
 
     /**
      * Stable id identifying this gateway instance for registry

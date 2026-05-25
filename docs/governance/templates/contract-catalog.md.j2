@@ -19,9 +19,9 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-spi-package siblings (ArchUnit `SpiPurityGeneralizedArchTest`). japicmp binary-compat from W1.
 
-**Active SPI interfaces (33 total):**
+**Active SPI interfaces (38 total):**
 
-(rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128.)
+(rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
@@ -58,15 +58,20 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `Planner` | `agent-execution-engine` | `com.huawei.ascend.engine.planner.spi` | rc43 design_only — goal → Plan DAG generator (ADR-0126); engine-side because Plan output is engine-consumable; distinct from `plan-projection.v1.yaml` scheduler INPUT |
 | `Agent` | `agent-service` | `com.huawei.ascend.service.agent.spi` | rc43 design_only — first-class entity binding model + skills + memory + planner (ADR-0128); HTTP-edge customer registration surface |
 | `AgentRegistry` | `agent-service` | `com.huawei.ascend.service.agent.spi` | rc43 design_only — tenant-scoped (tenantId, agentId) index (ADR-0128) |
+| `StructuredOutputConverter` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | rc51 design_only — generic `StructuredOutputConverter<T>` typed-bean extraction (ADR-0130); reference adapter `SpringAiBeanOutputConverterAdapter` lands in `agent-service.integration.springai` |
+| `PromptTemplate` | `agent-middleware` | `com.huawei.ascend.middleware.prompt.spi` | rc51 design_only — tenant-scoped prompt rendering with sealed `PromptTemplateSource` (ADR-0131); reference adapter `SpringAiPromptTemplateAdapter` |
+| `ChatAdvisor` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc51 design_only — interceptor SPI around `ModelGateway.invoke` (ADR-0132); customer-facing extension surface that binds to `HookDispatcher` internally at W2 |
+| `AdvisorChain` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc51 design_only — chain abstraction passed to `ChatAdvisor.aroundCall(...)` (ADR-0132) |
+| `ConversationMemory` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc51 design_only — windowed FIFO + token-budget pruning variant `extends MemoryStore<String, ConversationTurn>`; default category `M2_EPISODIC` (ADR-0133) |
 
-**SPI count by module (rc43 baseline; sum = 33 matches headline):**
+**SPI count by module (rc51 baseline; sum = 38 matches headline):**
 
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 9 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `StatelessEngine`, `ContextProjector`, `TaskStateStore`, `Agent`, `AgentRegistry`) |
 | `agent-execution-engine` | 7 (`ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `Checkpointer`, `Orchestrator`, `Planner`) |
 | `agent-bus` | 4 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`) |
-| `agent-middleware` | 12 (`RuntimeMiddleware`, `ModelGateway`, `Skill`, `SkillRegistry`, `MemoryStore`, `MemoryReader`, `MemoryWriter`, `SemanticMemoryStore`, `KnowledgeMemoryStore`, `VectorStore`, `Retriever`, `EmbeddingModel`) |
+| `agent-middleware` | 17 (`RuntimeMiddleware`, `ModelGateway`, `StructuredOutputConverter`, `Skill`, `SkillRegistry`, `MemoryStore`, `MemoryReader`, `MemoryWriter`, `SemanticMemoryStore`, `KnowledgeMemoryStore`, `ConversationMemory`, `VectorStore`, `Retriever`, `EmbeddingModel`, `PromptTemplate`, `ChatAdvisor`, `AdvisorChain`) |
 | `agent-evolve` | 1 (`SlowTrackJudge`) |
 | `agent-client` | 0 — consumer module; no SPI produced |
 | `spring-ai-ascend-graphmemory-starter` | 0 — sidecar adapter; no new SPI |
@@ -107,6 +112,12 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `HookPoint` | `agent-middleware` (`...middleware.spi`) | 10-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error + on_yield); mirrors `engine-hooks.v1.yaml` |
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
 | `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |
+| `ModelResponseChunk` | `agent-middleware` (`...middleware.model.spi`) | rc51 — sealed streaming chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0129); terminal `Complete` carries the assembled `ModelResponse` |
+| `PromptTemplateSource` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — sealed prompt source: `InlineString` \| `ClasspathResource`; each carries a `PlaceholderSyntax` enum value (ADR-0131) |
+| `RenderedPrompt` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — record `(templateId, renderedText, variables)` returned by `PromptTemplate.render(...)` (ADR-0131) |
+| `AdvisedRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc51 — record `(tenantId, ModelInvocation invocation, advisorContext)` passed along the `ChatAdvisor` chain (ADR-0132) |
+| `AdvisedResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc51 — record `(tenantId, ModelResponse response, advisorContext)` returned along the chain (ADR-0132) |
+| `ConversationTurn` | `agent-middleware` (`...middleware.memory.spi`) | rc51 — record `(Message message, Instant observedAt, int tokenCount)` carried by `ConversationMemory` (ADR-0133) |
 
 **Deferred / Promoted Design Names:**
 
@@ -145,6 +156,10 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `planning-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0126 (rc43 — Planner SPI; extends ADR-0032); runtime_enforced when W4 planner ships |
 | `plan.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0126 (rc43 — Planner output DAG; distinct from `plan-projection.v1.yaml` scheduler INPUT) |
 | `agent-definition.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0128 (rc43 — Agent first-class entity SPI); runtime_enforced when W3 SDK GA ships |
+| `model-streaming.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0129 (rc51 — Streaming-aware `ModelGateway.stream(...)`; runtime_enforced when W2 LLM gateway wires Spring AI `ChatModel.stream(...)`) |
+| `structured-output.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0130 (rc51 — `StructuredOutputConverter<T>` SPI; reference adapter wraps Spring AI `BeanOutputConverter`) |
+| `prompt-template.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0131 (rc51 — `PromptTemplate` SPI; reference adapter wraps Spring AI `PromptTemplate`) |
+| `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc51 — `ChatAdvisor` interceptor SPI; binds to `HookDispatcher` internally at W2 LLM gateway + Telemetry Vertical per ADR-0061 §7) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.
 

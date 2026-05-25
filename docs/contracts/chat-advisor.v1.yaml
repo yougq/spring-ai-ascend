@@ -1,0 +1,46 @@
+# ChatAdvisor / AdvisedRequest / AdvisedResponse schema, version 1.
+#
+# Authority: ADR-0132 (Chat Advisor SPI).
+#
+# This file is the single source of truth for the shape of an
+# advised model-call envelope. The Java types
+# com.huawei.ascend.middleware.advisor.spi.ChatAdvisor,
+# AdvisedRequest, AdvisedResponse, and AdvisorChain mirror this
+# schema and validate required fields on construction.
+#
+# Hook binding per ADR-0073 / ADR-0121: the advisor chain runs
+# around ModelGateway.invoke(...) inside
+# HookDispatcher.fire(BEFORE_LLM) and AFTER_LLM brackets.
+# HookDispatcher is platform-internal — Audience B composes
+# advisors at AgentDefinition time but never imports
+# HookDispatcher directly.
+
+schema: chat-advisor/v1
+status: design_only
+runtime_enforced: false
+authority: ADR-0132
+promotion_trigger: "First production ChatAdvisor binding (W2 LLM gateway wave + Telemetry Vertical per ADR-0061 §7)"
+
+chat_advisor:
+  required_methods:
+    - advisorName       # non-blank string
+    - order             # int; Integer.MAX_VALUE is lowest precedence
+    - aroundCall        # AdvisedRequest, AdvisorChain -> AdvisedResponse
+advised_request:
+  required_fields:
+    - tenantId          # non-blank (Rule R-C.c)
+    - invocation        # ModelInvocation (model-invocation.v1.yaml)
+    - advisorContext    # map<string, any>; mutable across chain but immutable per envelope
+advised_response:
+  required_fields:
+    - tenantId
+    - response          # ModelResponse (model-invocation.v1.yaml)
+    - advisorContext
+advisor_chain:
+  required_methods:
+    - next              # AdvisedRequest -> AdvisedResponse; each call advances exactly one chain step
+
+# Binding (W2): ChatAdvisor chain runs around ModelGateway.invoke(...)
+# inside HookDispatcher.fire(BEFORE_LLM)/AFTER_LLM brackets. Audience B
+# composes advisors at agent definition time via AgentDefinition; the
+# HookDispatcher is platform-internal and not exposed.

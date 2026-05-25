@@ -50,3 +50,49 @@ tool_call:
 
 # Reference adapter target: SpringAiChatModelGateway (Wave C1),
 # wrapping org.springframework.ai.chat.model.ChatModel per ADR-0125.
+
+# ---------------------------------------------------------------------
+# Tool-call iteration loop (ADR-0134)
+#
+# Two supported execution modes for the LLM <-> tool <-> LLM iteration:
+#
+#   agent_driven_loop:
+#     The platform re-invokes the ModelGateway with growing message
+#     history. Each iteration:
+#       1. ModelGateway.invoke(invocation) returns ModelResponse with
+#          finishReason "tool_calls" and a non-empty toolCalls list.
+#       2. Platform dispatches each ToolCall to Skill.execute(...).
+#       3. Each SkillResult becomes a ToolResultMessage appended to
+#          the next invocation's messages.
+#       4. Loop terminates when finishReason is one of {stop, length,
+#          content_filter, other} OR a configured max-iteration cap
+#          fires (default: 10).
+#
+#   planner_driven_dispatch:
+#     The platform invokes Planner.plan(...) to obtain a Plan DAG,
+#     then dispatches plan.steps individually through Skill.execute
+#     and Plan-projection scheduling. ModelGateway is NOT re-invoked
+#     in a loop; the Plan owns iteration shape.
+#
+# AgentDefinition picks one mode per agent. Default: agent_driven_loop.
+# Authority: ADR-0134. Status: design_only.
+
+tool_call_loop:
+  status: design_only
+  authority: ADR-0134
+  promotion_trigger: "First production AgentDefinition that dispatches tool calls (W2 tool-loop wave)"
+  modes:
+    - id: agent_driven_loop
+      iteration_owner: ModelGateway
+      termination_signals:
+        - "finishReason in {stop, length, content_filter, other}"
+        - "configured max-iteration cap (default 10)"
+      message_accumulation: "append ToolResultMessage for each ToolCall before next invoke"
+    - id: planner_driven_dispatch
+      iteration_owner: Planner
+      termination_signals:
+        - "Plan has no further dependencies"
+        - "PlanStep returns SkillError or budget exhaustion"
+      message_accumulation: "Plan steps; ModelGateway not re-invoked in loop"
+  default_mode: agent_driven_loop
+  per_agent_override: "AgentDefinition.metadata key 'tool-call-loop-mode'"
