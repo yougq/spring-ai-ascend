@@ -49,6 +49,30 @@ strategic_decisions:
       [historical] Pre-resolution "Ascend" was flagged as possibly Huawei-NPU regional branding and
       tracked separately so the architecture review surface would not block on it; now resolved.
 
+  audience_b_brand_commitment:
+    decision_status: resolved
+    decision_owner: chao
+    resolved_by: ADR-0120
+    resolved_date: 2026-05-25
+    surfaces_blocked: []
+    resolution: |
+      Resolved 2026-05-25 (ADR-0120, Wave A1 of the L0 Agentic Contract Surface remediation):
+      KEEP the `spring-ai-ascend` brand and the ARCHITECTURE.md §1.1 Audience B promise. The
+      rc41 "L0 final release-ready" decision is re-scoped in framing — rc41 becomes "Runtime
+      Kernel + Governance Skeleton GA" (real deliverable), and L0 Final Release-Ready is
+      re-claimed at rc48 after Phase B (6 SPI shapes) + Phase C (integration adapters +
+      worked example) + Phase D (governance lockstep) complete. Authorises the wave plan at
+      `.claude/plans/d-chao-workspace-spring-ai-ascend-docs-eager-harp.md` and its 7
+      downstream ADRs (ADR-0121 ModelGateway, ADR-0122 Tool-Skill resolution, ADR-0123
+      Memory unified, ADR-0124 Vector/Retriever/Embedding, ADR-0125 Spring AI boundary,
+      ADR-0126 Planner, ADR-0127 Skill SPI Tool unification, ADR-0128 Agent first-class).
+    note: |
+      Closes the L0 contract-shape gap identified in
+      `docs/logs/reviews/2026-05-25-l0-senior-architect-reopen-recommendation.en.md`.
+      Audience B (external Spring developers integrating into Spring Boot 4 + Java 21
+      applications) gets non-vacuous extension seams across Agent / ModelGateway / Skill /
+      MemoryStore / VectorStore / Planner; Rule R-A is non-vacuously satisfied after rc48.
+
 # Source: root pom.xml <modules> list updated 2026-05-20 (rc13 wave)
 repository_counts:
   note: "Canonical counts -- derived from root pom.xml modules list. All documents reference these; no document may claim a different count without updating this block. Bumped 2026-05-17 for the six-module materialization PR (T2.A scaffolds agent-client, agent-bus, agent-middleware, agent-execution-engine, agent-evolve; T2.B1 extracts middleware code; T2.B2 engine-code extraction completed at v2.0.0-rc5 (2026-05-18) per ADR-0079 — back-dep resolved by introducing agent-runtime-core). rc13 (2026-05-20) DISSOLVED agent-runtime-core per ADR-0088: 16 sources redistributed to semantic-home modules (runs/idempotency back to agent-service; orchestration.spi + RunMode into agent-execution-engine.engine.orchestration.spi; s2c.spi into agent-bus.bus.spi.s2c). Reactor returns to 8 modules = 6 substantive domain modules (client/service/bus/engine/middleware/evolve) + BoM + GraphMemory starter. Paired with ADR-0089 (Edge↔Compute Ingress Routing) which adds agent-bus.bus.spi.ingress as the C2S surface."
@@ -130,20 +154,20 @@ capabilities:
     latest_delivery_file: docs/delivery/2026-05-12-e0ccb6e.md
     baseline_metrics:
       # Other docs (README.md, gate/README.md) reference this block; raw numeric claims in those entrypoints
-      active_engineering_rules: 42              # live kernel-header count (9 D + 16 R + 15 G + 2 M = 42); +Rule G-12 Whitebox Quality Baseline on the rc35 baseline of 41.
+      active_engineering_rules: 43              # live kernel-header count (9 D + 16 R + 16 G + 2 M = 43); +Rule G-13 Single-Source Rendering Coherence on the rc40 baseline of 42 (rc42 W0 / ADR-0119).
       active_governing_principles: 13           # P-A..P-M
-      active_gate_checks: 139                   # live `# Rule N — slug` header count in gate/check_architecture_sync.sh; +Rule 125 codegraph install pinning truth on the rc40 baseline of 138.
-      gate_executable_test_cases: 249           # live gate/test_architecture_sync_gate.sh runtime TOTAL (Tests passed: 249/249 on WSL/Linux); includes 3 Rule 121 fixtures, 6 Rule 122-124 fixtures, 4 Rule 125 fixtures (pos + 3 neg), and the expanded prevention-wave fixtures already present in the harness.
-      enforcer_rows: 172                        # live docs/governance/enforcers.yaml row count; +E173 codegraph install pinning truth on the rc40 baseline of 171.
+      active_gate_checks: 140                   # live `# Rule N — slug` header count in gate/check_architecture_sync.sh; +Rule 126 template_render_idempotency W0 stub on the rc40 baseline of 139 (rc42 W0 / ADR-0119).
+      gate_executable_test_cases: 252           # live gate/test_architecture_sync_gate.sh runtime TOTAL (Tests passed: 252/252 on WSL/Linux); rc42 W0 +3 Rule 126 fixtures (pos + missing-registry neg + bad-schema neg) on the rc40 baseline of 249.
+      enforcer_rows: 173                        # live docs/governance/enforcers.yaml row count; +E174 template_render_idempotency (pending_w1) on the rc40 baseline of 172 (rc42 W0 / ADR-0119).
       section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc22)
-      adr_count: 103                            # rc38 +1 (ADR-0118 audit-corrective) on the rc37 baseline of 102.
-      maven_tests_green: 409                    # Formula: non-skipped passed Maven Surefire/Failsafe XML test cases from canonical `./mvnw clean verify` (or WSL `./mvnw clean verify` on Linux-first hosts). rc39 +26 from atomic runtime guards, agent-engine value-contract tests, TaskStateStore race regression, and HTTP contract assertions; release evidence MUST include the extractor output when this count changes.
-      architecture_graph_nodes: 475             # live recount via `bash gate/build_architecture_graph.sh`: +1 codegraph_install_truth enforcer node on the rc40 baseline of 474.
-      architecture_graph_edges: 852             # live recount via `bash gate/build_architecture_graph.sh`: +2 codegraph_install_truth enforcer/test edges on the rc40 baseline of 850.
-      recurring_defect_families: 14             # rc40 codegraph-mcp-onboarding lockstep: rc39 baseline 13 + new family F-project-tool-pin-drift (preventive registration alongside Rule 125 codegraph_install_truth — first project-local MCP tool wired under tools/codegraph/).
+      adr_count: 113                            # rc43 L0 Agentic Contract Surface remediation +9 (ADR-0120 through ADR-0128) on the rc42 W0 baseline of 104.
+      maven_tests_green: 409                    # Formula: non-skipped passed Maven Surefire/Failsafe XML test cases from canonical `./mvnw clean verify` (or WSL `./mvnw clean verify` on Linux-first hosts). rc43 unchanged at this snapshot (Wave C1 ships design-only adapter shells whose call paths throw UnsupportedOperationException; no new functional test asserted).
+      architecture_graph_nodes: 562             # live recount via `bash gate/build_architecture_graph.sh`: rc43 nodes added from ADR-0120..0128 (9 ADR nodes) + 12 new SPI / contract carrier nodes + new family F-l0-agentic-primitive-gap on the rc42 W0 baseline of 478.
+      architecture_graph_edges: 999             # live recount via `bash gate/build_architecture_graph.sh`: rc43 edges added from ADR relates_to / principle-coverage / SPI ownership / contract-citing on the rc42 W0 baseline of 865.
+      recurring_defect_families: 15             # rc43 L0 Agentic Contract Surface lockstep: rc42 W0 baseline 14 + new family F-l0-agentic-primitive-gap registered + closed_rc43 by construction via ADR-0120..0128.
       phase_contracts: 5                        # rc21 Wave 6 NEW: docs/governance/contracts/{architecture-design,engineering-implementation,integration-verification,system-commit,review-response}.md per ADR-0098.
       phase_loading_skills: 6                   # rc21 Wave 6 NEW: refresh-defect-archive (rc17) + 5 new phase skills (design-mode + impl-mode + verify-mode + commit-mode + review-mode) under .claude/skills/ per ADR-0098.
-    allowed_claim: "Architecture-sync gate implemented in bash (canonical); the PowerShell entrypoint is deprecated as of the rc2 wave (fail-closed stub; see gate/check_architecture_sync.ps1 + gate Rule 61 legacy_powershell_gate_deprecated). Architecture baseline (rc40 codegraph-mcp-onboarding, 2026-05-25): 65 §4 constraints; 103 ADRs (highest ADR-0118; 15 numbers vacated in 0001-0105 range — see adr_count comment); 139 active gate rules; 42 active engineering rules (D-/R-/G-/M- namespace per ADR-0086); 249 gate self-tests; 172 enforcer rows; 14 recurring defect families. Wave history retained in prior release notes; this row's numeric baseline is authoritative for release evidence."
+    allowed_claim: "Architecture-sync gate implemented in bash (canonical); the PowerShell entrypoint is deprecated as of the rc2 wave (fail-closed stub; see gate/check_architecture_sync.ps1 + gate Rule 61 legacy_powershell_gate_deprecated). Architecture baseline (rc43 L0 Agentic Contract Surface remediation, 2026-05-25): 65 §4 constraints; 113 ADRs (highest ADR-0128; +9 from ADR-0120 through ADR-0128 for the rc43 Agentic Contract Surface wave); 140 active gate rules (rc43 unchanged — existing R-D / G-1.1.b / G-8 enforcers automatically validate the 12 new SPIs via their iterating logic over module-metadata + catalog + DFX); 43 active engineering rules (D-/R-/G-/M- namespace per ADR-0086; rc43 unchanged); 252 gate self-tests (rc43 unchanged); 173 enforcer rows (rc43 unchanged); 15 recurring defect families (+1 F-l0-agentic-primitive-gap registered and closed_rc43 by construction). Wave history retained in prior release notes; this row's numeric baseline is authoritative for release evidence."
 
   plan_projection_contract:
     status: design_accepted

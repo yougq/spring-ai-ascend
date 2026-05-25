@@ -11,3 +11,5 @@
 # both depend on the graph builder.
 
 PyYAML>=6.0
+Jinja2>=3.1
+

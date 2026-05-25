@@ -1510,3 +1510,12 @@
   view: development
   artifact: gate/check_architecture_sync.sh#codegraph_install_truth
   asserts: "Rule 125 — project-local codegraph MCP install pinning truth (operationalises Rule R-A's developer-self-service clause): (a) tools/codegraph/package.json declares @colbymchenry/codegraph at an EXACT pin (X.Y.Z form; no ^/~/>=/<= prefix that would drift across npm installs); (b) tools/codegraph/package-lock.json exists with lockfileVersion >= 3 (older formats omit integrity hashes for optionalDependencies, so per-platform bundles drift silently between contributors); (c) .mcp.json registers an mcpServers.codegraph entry whose args reference a relative path under tools/codegraph/node_modules/@colbymchenry/codegraph/ (cross-platform, no PATH dependency). Guards pinning truth, not the local install state — CI without `npm ci` still passes."
+
+- id: E174
+  constraint_ref: "Rule G-13 (Single-Source Rendering Coherence); ADR-0119 W1 wave promotes status to active with gate/lib/render_template.py + gate/lib/load_render_context.py + gate/lib/check_template_render_idempotency.py landed"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#template_render_idempotency
+  asserts: "Rule G-13 — for every entry in docs/governance/templates/surface-classification.yaml whose bucket is `templated` or `hybrid`, render(template, load_context()) MUST produce a buffer byte-identical to the on-disk `output:` file; determinism contract (sorted dict iteration, LC_ALL=C sort, fixed-precision floats, keep_trailing_newline, no datetime/uuid/random) enforced in gate/lib/render_template.py."
+  status: active

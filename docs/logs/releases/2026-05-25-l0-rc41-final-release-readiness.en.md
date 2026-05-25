@@ -7,6 +7,10 @@ status: final-release-ready
 
 # v2.0.0 - L0 final release readiness
 
+> **Re-scoped at rc48.** Originally tagged `formal_release: true` at commit `d20d1e3` as "L0 final release-ready"; an independent senior-architect review (`docs/logs/reviews/2026-05-25-l0-senior-architect-reopen-recommendation.en.md`) identified seven L0-level contract-shape gaps (Agent / ModelGateway / Skill / Memory / Vector / Planner + Spring AI integration boundary) post-release. The rc41 deliverable is preserved as **"Runtime Kernel + Governance Skeleton GA"** (a real, shipped capability), and L0 Final Release-Ready is re-claimed at **rc48** (`docs/logs/releases/2026-05-25-l0-rc48-agentic-contract-surface.en.md`) per ADR-0120 through ADR-0128 which land the 7 missing shapes as design_only SPI contracts.
+
+> **Historical artifact frozen at SHA d20d1e395f85d022396fd848b885bba6ae429bd2 (v2.0.0 / rc41 final-release-readiness).** Baseline counts in this document (139 active gate rules / 249 self-tests / 172 enforcer rows / 475 graph nodes / 852 graph edges / 14 recurring defect families / 103 ADRs) reflect the corpus state at rc41 release time and are NOT retroactively updated. The current canonical baseline (after the rc48 L0 Agentic Contract Surface remediation: 140 / 252 / 173 / 562 / 999 / 15 / 113) is tracked in `docs/governance/architecture-status.yaml.architecture_sync_gate.allowed_claim` and `README.md`.
+
 > This file retains `rc41` in its filename only so the existing latest-release
 > resolver, which orders release notes by `rcN`, can select it. The release
 > decision below closes the RC state for the Layer-0 architecture baseline.

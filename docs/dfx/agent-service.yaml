@@ -18,6 +18,7 @@ spi_packages:
   - com.huawei.ascend.service.engine.spi                # rc23: StatelessEngine SPI per ADR-0100
   - com.huawei.ascend.service.session.spi               # rc23: ContextProjector SPI per ADR-0100
   - com.huawei.ascend.service.task.spi                  # rc23: TaskStateStore SPI per ADR-0100
+  - com.huawei.ascend.service.agent.spi                 # rc43: Agent first-class entity SPI per ADR-0128 (HTTP-edge customer registration surface)
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-service"

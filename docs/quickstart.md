@@ -89,6 +89,70 @@ No platform-team intervention required. The patterns this exercises:
 - Configuration via `@Bean` and `@ConfigurationProperties` — never by source
   patches into the platform module.
 
+## 4.5 L0 Agentic Contract Surface preview (rc43+)
+
+Wave rc43 of the L0 Agentic Contract Surface remediation (ADR-0120
+through ADR-0128) lands the contract shapes for **Agent / ModelGateway
+/ Skill / Memory / Vector / Retriever / EmbeddingModel / Planner**.
+The shapes are `status: design_only` at L0 — Java SPI interfaces and
+contract YAMLs exist; functional implementations of `Agent.invoke(...)`,
+`ModelGateway.invoke(...)`, etc. land across W2 (LLM gateway, skill
+registry), W3 (RAG vertical, SDK GA), and W4 (planner runtime). The
+Spring AI reference adapters under `service.integration.springai` are
+design-only shells today (throw `UnsupportedOperationException`); they
+prove the boundary compiles and the
+[`LlmGatewayHookChainOnlyTest`](../agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java)
+ArchUnit guard arms automatically when the W1 LLM package directory
+appears.
+
+Customer-side registration pattern (the shape Audience B implements
+against — runtime functional W2+):
+
+```java
+@Configuration
+public class MyFirstAgent {
+
+  @Bean
+  ModelGateway myModelGateway(ChatModel springAiChatModel) {
+    // Spring AI is the canonical Model abstraction per ADR-0125.
+    // Wave C1 SpringAiChatModelGateway is a design-only shell at L0;
+    // W2 LLM gateway wires real Spring AI invocation behind the
+    // platform's hook + capacity machinery.
+    return new SpringAiChatModelGateway(springAiChatModel, "openai-gpt-4o-mini");
+  }
+
+  @Bean
+  AgentDefinition myFirstAgent() {
+    return new AgentDefinition(
+        "support-agent",
+        "tenant-demo",
+        "Support Agent",
+        "Answers customer support questions using RAG over docs/.",
+        new ModelRef("openai-gpt-4o-mini"),
+        Set.of(/* SkillRef("get_order_status"), SkillRef("escalate_to_human") */),
+        Map.of(/* MemoryCategory.M5_KNOWLEDGE, new MemoryRef("docs-corpus", M5_KNOWLEDGE) */),
+        Optional.empty(),                         // plannerBinding
+        "You are a helpful support agent.",
+        SafetyPolicy.permissive(),
+        Map.of());
+  }
+}
+```
+
+The same `Orchestrator.run(...)` entry point used in §4 above continues
+to be the runtime contract for long-running agent work; the `AgentDefinition`
+is the *declarative* shape and the W3 SDK GA wave wires
+`Agent.invoke(...)` end-to-end via `AgentExecutorDefinitionFactory`.
+
+See:
+- [`docs/contracts/agent-definition.v1.yaml`](contracts/agent-definition.v1.yaml)
+- [`docs/contracts/model-invocation.v1.yaml`](contracts/model-invocation.v1.yaml)
+- [`docs/contracts/skill-definition.v1.yaml`](contracts/skill-definition.v1.yaml)
+- [`docs/contracts/memory-store.v1.yaml`](contracts/memory-store.v1.yaml)
+- [`docs/contracts/vector-store.v1.yaml`](contracts/vector-store.v1.yaml)
+- [`docs/contracts/planning-request.v1.yaml`](contracts/planning-request.v1.yaml)
+- ADR-0120 through ADR-0128 under `docs/adr/`.
+
 ## 5. Switch posture
 
 Set `APP_POSTURE=research` or `prod` and re-run. Now:

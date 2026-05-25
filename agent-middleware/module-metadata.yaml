@@ -7,11 +7,19 @@ module: agent-middleware
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Runtime-owned cross-cutting middleware SPI — HookPoint enum + RuntimeMiddleware listener + HookContext + HookOutcome + HookDispatcher. Extracted from agent-runtime/orchestration/spi per T2.B1."
+description: "Runtime-owned cross-cutting middleware SPI — HookPoint enum + RuntimeMiddleware listener + HookContext + HookOutcome + HookDispatcher (originally extracted from agent-runtime/orchestration/spi per T2.B1). rc43+: also hosts the cross-cutting middleware-tier SPI surface per ADR-0120 — ModelGateway, Skill (unified Tool), Memory, Vector, Retriever, Embedding — the intermediary primitives between engine and external systems. The first-class Agent entity (HTTP-edge customer registration surface) lives in agent-service; the Planner SPI (engine-side plan generator) lives in agent-execution-engine. Reference adapters (SpringAi*) live in agent-service per Wave C1."
 architecture_doc: agent-middleware/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-middleware.yaml
 spi_packages:
   - com.huawei.ascend.middleware.spi
+  - com.huawei.ascend.middleware.model.spi        # rc43 — ModelGateway SPI per ADR-0121
+  - com.huawei.ascend.middleware.skill.spi        # rc43 — unified Skill SPI per ADR-0127 + ADR-0122
+  - com.huawei.ascend.middleware.memory.spi       # rc43 — MemoryStore/Reader/Writer + M3/M5 markers per ADR-0123
+  - com.huawei.ascend.middleware.vector.spi       # rc43 — VectorStore SPI per ADR-0124
+  - com.huawei.ascend.middleware.retrieval.spi    # rc43 — Retriever SPI per ADR-0124
+  - com.huawei.ascend.middleware.embedding.spi    # rc43 — EmbeddingModel SPI per ADR-0124
+  # Agent SPI lives in agent-service (HTTP-edge customer entity).
+  # Planner SPI lives in agent-execution-engine (engine-side plan generator).
 allowed_dependencies: []  # SPI-pure: java.* only, per Rule R-D sub-clause .d
 forbidden_dependencies:
   - agent-service            # post-Phase-C (consolidated from agent-platform per ADR-0078); middleware is upstream of service

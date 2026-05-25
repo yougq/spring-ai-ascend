@@ -11,6 +11,7 @@ generated_at: 2026-05-18
 spi_packages:
   - com.huawei.ascend.engine.spi
   - com.huawei.ascend.engine.orchestration.spi   # rc13: orchestration SPI relocated from dissolved agent-runtime-core per ADR-0088
+  - com.huawei.ascend.engine.planner.spi          # rc43: Planner SPI per ADR-0126 (engine-side plan generator; Plan DAG feeds plan-projection.v1.yaml scheduler INPUT)
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-execution-engine"
@@ -46,3 +47,4 @@ observability:
   spi_packages:
     - "com.huawei.ascend.engine.spi"
     - "com.huawei.ascend.engine.orchestration.spi"
+    - "com.huawei.ascend.engine.planner.spi"

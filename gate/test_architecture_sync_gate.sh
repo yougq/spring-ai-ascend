@@ -6745,6 +6745,61 @@ SHEOF
   fi
 }
 
+test_rule_126_template_render_idempotency_pos() {
+  local root="$scratch/r126_pos"
+  mkdir -p "$root/docs/governance/templates"
+  cat > "$root/docs/governance/templates/surface-classification.yaml" <<'SHEOF'
+schema_version: 1
+last_updated: 2026-05-25
+templates: []
+SHEOF
+  if python3 -c "
+import sys, yaml
+with open('$root/docs/governance/templates/surface-classification.yaml') as fh:
+    data = yaml.safe_load(fh)
+assert isinstance(data, dict), 'root not mapping'
+assert 'schema_version' in data, 'missing schema_version'
+assert 'templates' in data, 'missing templates'
+assert isinstance(data['templates'], list), 'templates not list'
+" >/dev/null 2>&1; then
+    ok "rule126_template_render_idempotency_pos" "registry with schema_version + empty templates list passes W0 stub schema check"
+  else
+    fail "rule126_template_render_idempotency_pos" "expected the stub registry to pass schema check"
+  fi
+}
+
+test_rule_126_template_render_idempotency_missing_neg() {
+  local root="$scratch/r126_missing_neg"
+  mkdir -p "$root/docs/governance/templates"
+  # Deliberately do NOT create surface-classification.yaml.
+  if [[ ! -f "$root/docs/governance/templates/surface-classification.yaml" ]]; then
+    ok "rule126_template_render_idempotency_missing_neg" "absent registry file is detected (Rule G-13.a requires the registry to exist)"
+  else
+    fail "rule126_template_render_idempotency_missing_neg" "expected missing-registry case to be detected"
+  fi
+}
+
+test_rule_126_template_render_idempotency_bad_schema_neg() {
+  local root="$scratch/r126_bad_schema_neg"
+  mkdir -p "$root/docs/governance/templates"
+  cat > "$root/docs/governance/templates/surface-classification.yaml" <<'SHEOF'
+schema_version: 1
+last_updated: 2026-05-25
+# Missing required `templates:` key.
+SHEOF
+  if ! python3 -c "
+import sys, yaml
+with open('$root/docs/governance/templates/surface-classification.yaml') as fh:
+    data = yaml.safe_load(fh)
+assert isinstance(data, dict)
+assert 'templates' in data
+" >/dev/null 2>&1; then
+    ok "rule126_template_render_idempotency_bad_schema_neg" "registry missing the templates key fails the W0 stub schema check"
+  else
+    fail "rule126_template_render_idempotency_bad_schema_neg" "expected missing-templates-key registry to fail schema check"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

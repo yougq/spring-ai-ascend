@@ -10,6 +10,12 @@ generated_at: 2026-05-18
 
 spi_packages:
   - com.huawei.ascend.middleware.spi
+  - com.huawei.ascend.middleware.model.spi
+  - com.huawei.ascend.middleware.skill.spi
+  - com.huawei.ascend.middleware.memory.spi
+  - com.huawei.ascend.middleware.vector.spi
+  - com.huawei.ascend.middleware.retrieval.spi
+  - com.huawei.ascend.middleware.embedding.spi
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-middleware"
@@ -43,3 +49,9 @@ observability:
   audit_trail: "audit hooks (W2 LlmSpanEmitterHook, etc.) attach via HookPoint AFTER_LLM_INVOCATION / AFTER_TOOL_INVOCATION"
   spi_packages:
     - "com.huawei.ascend.middleware.spi"
+    - "com.huawei.ascend.middleware.model.spi"
+    - "com.huawei.ascend.middleware.skill.spi"
+    - "com.huawei.ascend.middleware.memory.spi"
+    - "com.huawei.ascend.middleware.vector.spi"
+    - "com.huawei.ascend.middleware.retrieval.spi"
+    - "com.huawei.ascend.middleware.embedding.spi"
