@@ -9,10 +9,12 @@
 # com.huawei.ascend.middleware.model.spi.ModelResponseChunk and the
 # default method ModelGateway.stream(...) mirror this schema.
 #
-# Hook binding per ADR-0073: HookPoint.BEFORE_LLM fires ONCE with
-# ModelInvocation before stream open; HookPoint.AFTER_LLM fires
-# ONCE with the terminal Complete.finalResponse(). Per-chunk hooks
-# are deliberately not declared at this contract version.
+# Hook binding per ADR-0073 + advisor-model-hook-order/v1:
+# HookPoint.BEFORE_LLM fires ONCE with ModelInvocation before the
+# ordered StreamingChatAdvisor chain opens the provider stream;
+# HookPoint.AFTER_LLM fires ONCE after outbound advisors produce the
+# final translated ModelResponse. Per-chunk hooks are deliberately not
+# declared at this contract version.
 
 schema: model-streaming/v1
 status: design_only
@@ -55,14 +57,15 @@ model_response_chunk:
         - finalResponse        # ModelResponse, non-null (see model-invocation.v1.yaml)
 
 hook_binding:
+  sequence_id: advisor-model-hook-order/v1
   before_llm:
     fires: "once"
-    timing: "before stream open"
+    timing: "before ordered StreamingChatAdvisor chain opens provider stream"
     payload: "ModelInvocation"
   after_llm:
     fires: "once"
-    timing: "on terminal Complete chunk"
-    payload: "Complete.finalResponse()"
+    timing: "after outbound StreamingChatAdvisor transformations complete"
+    payload: "final translated ModelResponse"
   per_chunk:
     declared: false
     rationale: "Reserved for a follow-on ADR; current envelope keeps hook surface stable"

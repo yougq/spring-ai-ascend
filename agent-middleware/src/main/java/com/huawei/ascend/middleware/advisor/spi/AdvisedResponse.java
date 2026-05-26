@@ -11,9 +11,9 @@ import java.util.Objects;
  * {@code docs/contracts/chat-advisor.v1.yaml}.
  *
  * @param tenantId        owning tenant (Rule R-C.c); MUST be non-blank.
- * @param responseEnvelope provider-neutral response payload returned by
- *                         the terminal gateway binding or synthesised
- *                         by a short-circuiting advisor. Never null.
+ * @param modelResponse   provider-neutral response payload returned by
+ *                        the terminal gateway binding or synthesised
+ *                        by a short-circuiting advisor. Never null.
  * @param advisorContext  cross-advisor scratch map propagated back up
  *                        the chain (e.g. citation annotations, cost
  *                        attribution totals, redaction reports). The
@@ -25,17 +25,16 @@ import java.util.Objects;
  */
 public record AdvisedResponse(
         String tenantId,
-        Map<String, Object> responseEnvelope,
+        AdvisedModelResponse modelResponse,
         Map<String, Object> advisorContext) {
 
     public AdvisedResponse {
         Objects.requireNonNull(tenantId, "tenantId");
-        Objects.requireNonNull(responseEnvelope, "responseEnvelope");
+        Objects.requireNonNull(modelResponse, "modelResponse");
         Objects.requireNonNull(advisorContext, "advisorContext");
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }
-        responseEnvelope = Map.copyOf(responseEnvelope);
         advisorContext = Map.copyOf(advisorContext);
     }
 }

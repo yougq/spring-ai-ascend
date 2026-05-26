@@ -9,10 +9,10 @@
  * patterns are the public Audience B extension surfaces for
  * cross-cutting model-call decoration — PII redaction, memory
  * retrieval augmentation, cost attribution, caching. Customers
- * compose advisors at agent definition time; the platform
- * internally binds the chain to the {@code HookDispatcher}
- * (ADR-0073) — Audience B code never imports
- * {@code HookDispatcher} directly.
+ * compose advisors at agent definition time; runtime binding follows
+ * sequence {@code advisor-model-hook-order/v1} and keeps
+ * {@code HookDispatcher} platform-internal. Audience B code never
+ * imports {@code HookDispatcher} directly.
  *
  * <p>The runtime binding lives in the W2 LLM gateway wave per
  * ADR-0061 §7 (Telemetry Vertical co-arrives with the Hook SPI

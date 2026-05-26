@@ -6956,8 +6956,9 @@ fi
 # ---------------------------------------------------------------------------
 # Rule 127 — release_note_no_pending_evidence (enforcer E175)
 #
-# Current release notes that claim a shipped / release decision MUST NOT carry
-# placeholder evidence tokens or non-SHA candidate commits.
+# Current release notes that claim a shipped / release / closure decision MUST
+# NOT carry live placeholder tokens; current review responses are checked too.
+# Formal notes must also carry non-placeholder candidate commits.
 #
 # scope_surfaces: docs/logs/releases/*.md, gate/lib/check_release_note_current_truth.py
 # ---------------------------------------------------------------------------
@@ -6992,10 +6993,16 @@ fi
 #
 # Contract-catalog active SPI totals, module totals, and the latest release
 # note's Active SPI total must agree. Promoted SPIs must not remain listed
-# as deferred design names.
+# as deferred design names. Agent/advisor composition claims must also be
+# backed by AgentDefinition fields, typed advisor carriers, and the shared
+# advisor/model hook sequence.
 #
 # scope_surfaces: docs/contracts/contract-catalog.md,
-#                 docs/logs/releases/*.md
+#                 docs/logs/releases/*.md,
+#                 docs/contracts/chat-advisor.v1.yaml,
+#                 docs/contracts/agent-definition.v1.yaml,
+#                 docs/contracts/model-streaming.v1.yaml,
+#                 agent-service/src/main/java/.../AgentDefinition.java
 # ---------------------------------------------------------------------------
 _r129_out=$(python3 gate/lib/check_contract_spi_count_truth.py --root . 2>&1)
 _r129_rc=$?

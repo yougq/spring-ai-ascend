@@ -48,11 +48,12 @@ public interface ModelGateway {
      * <p>Authority: ADR-0129, schema at
      * {@code docs/contracts/model-streaming.v1.yaml}.
      *
-     * <p>Hook binding: {@code HookPoint.BEFORE_LLM} fires once with
-     * {@link ModelInvocation} before stream open;
-     * {@code HookPoint.AFTER_LLM} fires once with the terminal
-     * {@code Complete.finalResponse()}. Per-chunk hooks are not
-     * declared at L0.
+     * <p>Hook binding: sequence {@code advisor-model-hook-order/v1}
+     * fires {@code HookPoint.BEFORE_LLM} once with {@link ModelInvocation}
+     * before ordered streaming advisors open the provider stream, then
+     * fires {@code HookPoint.AFTER_LLM} once after outbound advisors
+     * produce the final translated {@link ModelResponse}. Per-chunk hooks
+     * are not declared at L0.
      *
      * <p>SPI purity per Rule R-D: the return type is
      * {@link java.util.stream.Stream} — Reactor {@code Flux} is

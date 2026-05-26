@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,48 +33,58 @@ class AdvisorSpiCarrierImmutabilityTest {
                 "messages", List.of(Map.of("role", "user", "content", "hello")));
     }
 
-    private static Map<String, Object> sampleResponseEnvelope() {
-        return Map.of(
-                "content", "answer",
-                "finishReason", "stop",
-                "provider", "openai");
+    private static AdvisedModelRequest sampleModelRequest() {
+        return new AdvisedModelRequest(
+                "model",
+                List.of(AdvisedMessage.user("hello")),
+                List.of("search"),
+                Map.of("temperature", 0.2),
+                Map.of("traceId", "trace"));
+    }
+
+    private static AdvisedModelResponse sampleModelResponse() {
+        return new AdvisedModelResponse(
+                "answer",
+                List.of(new AdvisedToolCall("call", "search", "{}")),
+                AdvisedFinishReason.STOP,
+                Optional.of(new AdvisedUsage(3, 4, 7)),
+                Map.of("provider", "openai"));
     }
 
     @Test
     void advisedRequestRejectsNullFields() {
-        assertThatThrownBy(() -> new AdvisedRequest(null, sampleRequestEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedRequest(null, sampleModelRequest(), Map.of()))
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new AdvisedRequest("tenant", null, Map.of()))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new AdvisedRequest("tenant", sampleRequestEnvelope(), null))
+        assertThatThrownBy(() -> new AdvisedRequest("tenant", sampleModelRequest(), null))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
     void advisedRequestRejectsBlankTenantId() {
-        assertThatThrownBy(() -> new AdvisedRequest("", sampleRequestEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedRequest("", sampleModelRequest(), Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenantId");
-        assertThatThrownBy(() -> new AdvisedRequest("   ", sampleRequestEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedRequest("   ", sampleModelRequest(), Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenantId");
     }
 
     @Test
     void advisedRequestCopiesPayloadAndAdvisorContextAndIsUnmodifiable() {
-        Map<String, Object> requestEnvelope = new HashMap<>(sampleRequestEnvelope());
         Map<String, Object> advisorContext = new HashMap<>(Map.of("redaction", "pii"));
 
-        AdvisedRequest request = new AdvisedRequest("tenant", requestEnvelope, advisorContext);
+        AdvisedRequest request = new AdvisedRequest("tenant", sampleModelRequest(), advisorContext);
 
-        requestEnvelope.put("model", "mutated");
         advisorContext.put("redaction", "mutated");
         advisorContext.put("added", "after");
 
-        assertThat(request.requestEnvelope()).containsEntry("model", "model");
+        assertThat(request.modelRequest().modelId()).isEqualTo("model");
+        assertThat(request.modelRequest().messages()).extracting(AdvisedMessage::content).containsExactly("hello");
         assertThat(request.advisorContext()).containsEntry("redaction", "pii");
         assertThat(request.advisorContext()).doesNotContainKey("added");
-        assertThatThrownBy(() -> request.requestEnvelope().put("new", "value"))
+        assertThatThrownBy(() -> request.modelRequest().messages().add(AdvisedMessage.user("new")))
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> request.advisorContext().put("new", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -81,39 +92,40 @@ class AdvisorSpiCarrierImmutabilityTest {
 
     @Test
     void advisedResponseRejectsNullFields() {
-        assertThatThrownBy(() -> new AdvisedResponse(null, sampleResponseEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedResponse(null, sampleModelResponse(), Map.of()))
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new AdvisedResponse("tenant", null, Map.of()))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new AdvisedResponse("tenant", sampleResponseEnvelope(), null))
+        assertThatThrownBy(() -> new AdvisedResponse("tenant", sampleModelResponse(), null))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
     void advisedResponseRejectsBlankTenantId() {
-        assertThatThrownBy(() -> new AdvisedResponse("", sampleResponseEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedResponse("", sampleModelResponse(), Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenantId");
-        assertThatThrownBy(() -> new AdvisedResponse("\t", sampleResponseEnvelope(), Map.of()))
+        assertThatThrownBy(() -> new AdvisedResponse("\t", sampleModelResponse(), Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenantId");
     }
 
     @Test
     void advisedResponseCopiesPayloadAndAdvisorContextAndIsUnmodifiable() {
-        Map<String, Object> responseEnvelope = new HashMap<>(sampleResponseEnvelope());
         Map<String, Object> advisorContext = new HashMap<>(Map.of("cost", 0.12));
 
-        AdvisedResponse response = new AdvisedResponse("tenant", responseEnvelope, advisorContext);
+        AdvisedResponse response = new AdvisedResponse("tenant", sampleModelResponse(), advisorContext);
 
-        responseEnvelope.put("content", "mutated");
         advisorContext.put("cost", 9.99);
         advisorContext.put("added", "after");
 
-        assertThat(response.responseEnvelope()).containsEntry("content", "answer");
+        assertThat(response.modelResponse().content()).isEqualTo("answer");
+        assertThat(response.modelResponse().toolCalls()).extracting(AdvisedToolCall::skillKey)
+                .containsExactly("search");
         assertThat(response.advisorContext()).containsEntry("cost", 0.12);
         assertThat(response.advisorContext()).doesNotContainKey("added");
-        assertThatThrownBy(() -> response.responseEnvelope().put("new", "value"))
+        assertThatThrownBy(() -> response.modelResponse().toolCalls().add(
+                new AdvisedToolCall("new", "search", "{}")))
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> response.advisorContext().put("new", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -121,8 +133,8 @@ class AdvisorSpiCarrierImmutabilityTest {
 
     @Test
     void streamingAdvisorCanWrapStreamingChainWithSamePackageChunks() {
-        AdvisedRequest request = new AdvisedRequest("tenant", sampleRequestEnvelope(), Map.of());
-        AdvisedResponse response = new AdvisedResponse("tenant", sampleResponseEnvelope(), Map.of());
+        AdvisedRequest request = new AdvisedRequest("tenant", sampleModelRequest(), Map.of());
+        AdvisedResponse response = new AdvisedResponse("tenant", sampleModelResponse(), Map.of());
         StreamingAdvisorChain chain = ignored -> Stream.of(
                 new AdvisedStreamChunk.ContentDelta("hel"),
                 new AdvisedStreamChunk.ContentDelta("lo"),
@@ -150,5 +162,25 @@ class AdvisorSpiCarrierImmutabilityTest {
         assertThat(chunks.get(0)).isInstanceOf(AdvisedStreamChunk.ContentDelta.class);
         assertThat(chunks.get(2)).isInstanceOfSatisfying(AdvisedStreamChunk.Complete.class,
                 complete -> assertThat(complete.finalResponse()).isSameAs(response));
+    }
+
+    @Test
+    void advisedModelRequestRejectsSchemaLessMessagesAndBlankModelId() {
+        assertThatThrownBy(() -> new AdvisedModelRequest(
+                " ",
+                List.of(AdvisedMessage.user("hello")),
+                List.of(),
+                Map.of(),
+                Map.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("modelId");
+        assertThatThrownBy(() -> new AdvisedModelRequest(
+                "model",
+                List.of(),
+                List.of(),
+                Map.of(),
+                Map.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("messages");
     }
 }

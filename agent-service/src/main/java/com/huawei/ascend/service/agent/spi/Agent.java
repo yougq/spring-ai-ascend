@@ -5,6 +5,7 @@ import com.huawei.ascend.middleware.memory.spi.MemoryRef;
 import com.huawei.ascend.engine.planner.spi.PlannerRef;
 import com.huawei.ascend.middleware.skill.spi.SkillRef;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -57,6 +58,10 @@ public interface Agent {
 
     default Optional<PlannerRef> plannerBinding() {
         return definition().plannerBinding();
+    }
+
+    default List<AdvisorBinding> advisorBindings() {
+        return definition().advisorBindings();
     }
 
     default String systemPrompt() {

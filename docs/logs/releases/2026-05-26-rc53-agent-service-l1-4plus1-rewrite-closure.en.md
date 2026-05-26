@@ -9,6 +9,8 @@ authority: ADR-0136..0139 + ADR-0100 (parent ratification)
 
 # rc53 — Agent Service L1 4+1 Rewrite — Closure Release Note
 
+> **Historical artifact frozen at SHA f34a2ac10faed7f24326a64c414a2880a1137051 (rc53 agent-service L1 closure).** Baseline counts in this document reflect state at rc53 publication time and are NOT retroactively updated per the logs-folder snapshot-evidence policy (`docs/governance/logs-folder-policy.md`). Canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`.
+
 > **Wave family:** rc53 / `rc53/agent-service-l1-4plus1-rewrite` branch
 > **Date:** 2026-05-26
 > **Scope:** `agent-service` module L1 architecture documentation refresh
@@ -63,7 +65,7 @@ InterruptSignal Java-level rename.
 | Wave 5 | `04b2197` | 4 ADRs promoted to accepted + 3 deferred siblings closed | +99 |
 | Wave 6 | `44f62bf` | 5 Java types Javadoc Vocabulary Glossary | +112 |
 | Wave 7 | (deleted) | (no Run→Task / SuspendSignal rename per ADR-0100 reconciliation) | n/a |
-| Wave 8 | (this commit) | ARCHITECTURE.md §0.5 pointer + historical-snapshot marker on review draft + this release note | TBD |
+| Wave 8 | (this commit) | ARCHITECTURE.md §0.5 pointer + historical-snapshot marker on review draft + this release note | not measured |
 
 ## ADRs Accepted (rc53)
 

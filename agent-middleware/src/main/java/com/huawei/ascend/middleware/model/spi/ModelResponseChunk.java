@@ -15,10 +15,11 @@ import java.util.Objects;
  * in arrival order. A cancelled stream may close before Complete, and
  * provider/runtime errors surface as exceptions from the stream.
  *
- * <p>Hook binding (ADR-0073): {@code HookPoint.BEFORE_LLM} fires
- * once before stream open; {@code HookPoint.AFTER_LLM} fires once on
- * the terminal {@link Complete} chunk with
- * {@link Complete#finalResponse()}.
+ * <p>Hook binding (ADR-0073): sequence
+ * {@code advisor-model-hook-order/v1} fires {@code HookPoint.BEFORE_LLM}
+ * once before ordered streaming advisors open the provider stream and
+ * {@code HookPoint.AFTER_LLM} once after outbound advisors produce the
+ * final translated response.
  *
  * <p>SPI purity per Rule R-D: imports only {@code java.*} +
  * same-package siblings.

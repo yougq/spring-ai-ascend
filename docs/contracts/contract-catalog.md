@@ -120,8 +120,15 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `ModelResponseChunk` | `agent-middleware` (`...middleware.model.spi`) | rc51 — sealed streaming chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0129); terminal `Complete` carries the assembled `ModelResponse` |
 | `PromptTemplateSource` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — sealed prompt source: `InlineString` \| `ClasspathResource`; each carries a `PlaceholderSyntax` enum value (ADR-0131) |
 | `RenderedPrompt` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — record `(templateId, renderedText, variables)` returned by `PromptTemplate.render(...)` (ADR-0131) |
-| `AdvisedRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc52 — record `(tenantId, requestEnvelope, advisorContext)` passed along sync/stream advisor chains without model-SPI imports (ADR-0132) |
-| `AdvisedResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc52 — record `(tenantId, responseEnvelope, advisorContext)` returned along sync/stream advisor chains (ADR-0132) |
+| `AdvisorBinding` | `agent-service` (`...service.agent.spi`) | rc53 — per-agent advisor binding carrier `(advisorName, mode, orderOverride, metadata)` on `AgentDefinition`; resolves advisors by name without importing middleware advisor SPI (ADR-0128 / ADR-0132) |
+| `AdvisedRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelRequest, advisorContext)` passed along sync/stream advisor chains without model-SPI imports (ADR-0132) |
+| `AdvisedResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelResponse, advisorContext)` returned along sync/stream advisor chains (ADR-0132) |
+| `AdvisedModelRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package model request carrier `(modelId, messages, tools, parameters, hookContext)` for advisors (ADR-0132) |
+| `AdvisedModelResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package model response carrier `(content, toolCalls, finishReason, usage, metadata)` for advisors (ADR-0132) |
+| `AdvisedMessage` / `AdvisedMessageRole` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package message vocabulary for advisor payloads (ADR-0132) |
+| `AdvisedToolCall` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package tool-call carrier for advisor payloads (ADR-0132) |
+| `AdvisedFinishReason` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — advisor-local finish reason enum mirroring model termination semantics without cross-SPI import (ADR-0132) |
+| `AdvisedUsage` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — advisor-local token usage carrier (ADR-0132) |
 | `AdvisedStreamChunk` | `agent-middleware` (`...middleware.advisor.spi`) | rc52 — sealed streaming-advisor chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0132) |
 | `ConversationRole` | `agent-middleware` (`...middleware.memory.spi`) | rc52 — role enum for conversation turns: `SYSTEM`, `USER`, `ASSISTANT`, `TOOL` (ADR-0133) |
 | `ConversationWindow` | `agent-middleware` (`...middleware.memory.spi`) | rc52 — record `(List<ConversationTurn> turns, Map metadata)` stored by `ConversationMemory` (ADR-0133) |
@@ -168,7 +175,7 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `model-streaming.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0129 (rc51 — Streaming-aware `ModelGateway.stream(...)`; runtime_enforced when W2 LLM gateway wires Spring AI `ChatModel.stream(...)`) |
 | `structured-output.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0130 (rc51 — `StructuredOutputConverter<T>` SPI; reference adapter wraps Spring AI `BeanOutputConverter`) |
 | `prompt-template.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0131 (rc51 — `PromptTemplate` SPI; reference adapter wraps Spring AI `PromptTemplate`) |
-| `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc52 — `ChatAdvisor` + `StreamingChatAdvisor` interceptor SPIs; same-package carrier envelope avoids model-SPI dependency; binds to `HookDispatcher` internally at W2 LLM gateway + Telemetry Vertical per ADR-0061 §7) |
+| `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc53 — `ChatAdvisor` + `StreamingChatAdvisor` interceptor SPIs; typed same-package advisor carriers avoid model-SPI dependency; `advisor-model-hook-order/v1` binds ordering relative to `BEFORE_LLM` / `AFTER_LLM`) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.
 

@@ -6,7 +6,9 @@ import java.util.stream.Stream;
  * Streaming sibling of {@link ChatAdvisor}.
  *
  * <p>Authority: ADR-0132. This SPI composes streaming model calls
- * without importing the model SPI package.
+ * without importing the model SPI package. Runtime binding shares
+ * sequence {@code advisor-model-hook-order/v1} with the synchronous
+ * advisor chain.
  */
 public interface StreamingChatAdvisor {
 

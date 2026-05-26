@@ -11,7 +11,7 @@ import java.util.Objects;
  * {@code docs/contracts/chat-advisor.v1.yaml}.
  *
  * @param tenantId        owning tenant (Rule R-C.c); MUST be non-blank.
- * @param requestEnvelope provider-neutral request payload that the
+ * @param modelRequest    provider-neutral request payload that the
  *                        terminal model gateway binding will receive.
  *                        Never null.
  * @param advisorContext  cross-advisor scratch map (e.g. PII
@@ -24,17 +24,16 @@ import java.util.Objects;
  */
 public record AdvisedRequest(
         String tenantId,
-        Map<String, Object> requestEnvelope,
+        AdvisedModelRequest modelRequest,
         Map<String, Object> advisorContext) {
 
     public AdvisedRequest {
         Objects.requireNonNull(tenantId, "tenantId");
-        Objects.requireNonNull(requestEnvelope, "requestEnvelope");
+        Objects.requireNonNull(modelRequest, "modelRequest");
         Objects.requireNonNull(advisorContext, "advisorContext");
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }
-        requestEnvelope = Map.copyOf(requestEnvelope);
         advisorContext = Map.copyOf(advisorContext);
     }
 }
