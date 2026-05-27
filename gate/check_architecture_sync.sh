@@ -1494,7 +1494,7 @@ _r28c_fail=0
 _secret_patterns='AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9]{36}'
 # docs/governance/enforcers.yaml is the index — it DOCUMENTS the patterns and
 # is intentionally excluded; the index does not contain real secrets.
-_28c_hits=$(git grep -lE "$_secret_patterns" -- ':!target/' ':!*.jar' ':!*.png' ':!*.jpg' ':!*.pdf' ':!docs/governance/enforcers.yaml' ':!gate/check_architecture_sync.sh' ':!gate/check_architecture_sync.ps1' 2>/dev/null || true)
+_28c_hits=$(git grep -lE "$_secret_patterns" -- ':!target/' ':!*.jar' ':!*.png' ':!*.jpg' ':!*.pdf' ':!docs/governance/enforcers.yaml' ':!architecture/generated/enforcers.dsl' ':!gate/check_architecture_sync.sh' ':!gate/check_architecture_sync.ps1' 2>/dev/null || true)
 if [[ -n "$_28c_hits" ]]; then
   while IFS= read -r _hit; do
     [[ -z "$_hit" ]] && continue
@@ -7014,6 +7014,22 @@ fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
+
+# Wave 5 authority transfer (ADR-0147): after the rule list runs, invoke the
+# workspace check. In BLOCKING mode it fails closed on profile violations or
+# generated-zone drift. Listed AFTER the rule loop so the structural-rule
+# verdict above is preserved if the workspace tooling is temporarily
+# unavailable (e.g. on a host without Java 21 + Maven wrapper).
+WORKSPACE_GATE="$(dirname "${BASH_SOURCE[0]}")/check_architecture_workspace.sh"
+if [[ -x "$WORKSPACE_GATE" ]]; then
+  echo "---"
+  echo "Running architecture workspace gate (ADR-0147 W5+)..."
+  if ! bash "$WORKSPACE_GATE"; then
+    echo "GATE: FAIL (workspace gate)"
+    exit 1
+  fi
+fi
+
 if [[ $fail_count -eq 0 ]]; then
   echo "GATE: PASS"
   exit 0

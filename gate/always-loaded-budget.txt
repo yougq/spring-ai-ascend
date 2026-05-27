@@ -106,7 +106,11 @@
 CLAUDE.md=45000
 ARCHITECTURE.md=95000
 AGENTS.md=5000
-docs/governance/SESSION-START-CONTEXT.md=6000
+docs/governance/SESSION-START-CONTEXT.md=6500
+# Structurizr workspace authority W5 (ADR-0147 + ADR-0149): +301 bytes to add
+# the `architecture/workspace.dsl` ALWAYS-LOAD row (step 2 + 2a) and rewrite
+# the legacy graph-yaml row as a "retires at W7" entry. Ceiling raised 6000 → 6500
+# to admit the W5 reading-order rewrite plus ~200 bytes headroom.
 # rc40 agent-execution-engine corrective: +3 proposal-overclaim enforcer nodes / +6 edges grew
 # the generated graph over the rc36 ceiling; raised to 197500 with the same tight ratchet posture.
 # rc42 W0 single-source-rendering policy wave (ADR-0119): +3 nodes / +13 edges (ADR-0119 +
@@ -124,7 +128,11 @@ docs/governance/SESSION-START-CONTEXT.md=6000
 # 41 relates_to/extends/affects edges fanning to existing ADR + contract + family
 # nodes grew the graph to 263149 bytes; raised to 265500 with ~2.3K headroom
 # (same ratchet posture).
-docs/governance/architecture-graph.yaml=265500
+docs/governance/architecture-graph.yaml=267000
+# Structurizr workspace authority W7 (ADR-0149): +1 ADR node (0149) + 6 edges
+# (extends ADR-0147 + ADR-0148; relates_to ADR-0068 + ADR-0119) grew the graph
+# from 265500 to ~266400 bytes. Ceiling raised 265500 → 267000 with ~600 bytes
+# headroom (same ratchet posture).
 # rc37 (ADR-0117): strategic_decisions resolution blocks (2 decisions open→resolved) + allowed_claim
 # rc37 entry grew the file over the 128000 ceiling (historical notes trimmed to offset); raised to
 # 131000 (~1.5K-per-wave ratchet + headroom for the one-time strategic_decisions resolution structure).
