@@ -149,5 +149,8 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
     views {
         !include views/L0-system-context.dsl
         !include views/L1-development.dsl
+        !include views/L1-process.dsl
+        !include views/L1-physical.dsl
+        !include views/L1-scenarios.dsl
     }
 }

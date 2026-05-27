@@ -1,56 +1,234 @@
 ---
 level: L1
-view: development
-module: agent-service
-status: proposed
-authority: "Absorbed from docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md §6.1-6.6 per the post-merge audit plan (Wave 3). Anchors back to canonical 4+1 views under docs/L1/agent-service/ — this directory is module-feature decomposition, NOT a new architectural authority level."
+view: scenarios
+status: shipped
+authority: "ADR-0151 (L1 Feature Registry canonical schema) + ADR-0152 (uniform L1 + W3 catalog rendering)"
 ---
 
-# agent-service — Feature Inventory (per-module decomposition)
+<!-- DO NOT HAND-EDIT. Rendered from architecture/features/features.dsl by gate/lib/render_features_catalog.py. Re-emit via that script; render-idempotency is enforced by Rule G-13.b. -->
 
-> Scope: 47 features (AS-L1-F01..AS-L1-F47) grouped by the six service-architecture modules from ADR-0138 + ADR-0140.
-> Status: `proposed` — these features describe required capability boundaries; they do NOT all map to shipped Java code today. Shipped state grounding lives in `agent-service/ARCHITECTURE.md` and the SPI Appendix at `../spi-appendix.md`.
+# `agent-service` — L1 Feature Catalog (9-section)
 
-## 1. Layout
+This catalog is the **rendered** human-readable view of the
+`agent-service`-owned features registered in
+[`architecture/features/features.dsl`](../../../../features/features.dsl).
+The structured source is the DSL; this Markdown is byte-identical
+on re-emit. The 9 sections follow the user-supplied L1 Feature
+Catalog template (ADR-0151).
 
-| File | Module | Features | Canonical Layer (per ADR-0138 + ADR-0140) |
+## 1. Feature Metadata
+
+| Feature ID | Name | Status | Capability Domain |
 |---|---|---|---|
-| [`access-layer.md`](access-layer.md) | Access Layer | AS-L1-F01..F08 (8) | Layer 1 |
-| [`session-task-manager.md`](session-task-manager.md) | Session & Task Manager | AS-L1-F09..F16 (8) | Layer 2 |
-| [`internal-event-queue.md`](internal-event-queue.md) | Internal Event Queue (`design_only` per ADR-0141) | AS-L1-F17..F23 (7) | Layer 3 |
-| [`task-centric-control.md`](task-centric-control.md) | Task-Centric Control Layer | AS-L1-F24..F32 (9) | Layer 4 |
-| [`engine-dispatch-execution.md`](engine-dispatch-execution.md) | Engine Dispatch & Execution | AS-L1-F33..F39 (7) | Layer 5a |
-| [`translation-tool-intercept.md`](translation-tool-intercept.md) | Translation & Tool-Intercept | AS-L1-F40..F47 (8) | Layer 5b |
+| `FEAT-ENGINE-DISPATCH-AND-HOOKS` | Engine Dispatch and Hooks | `shipped` | `engine-contract` |
+| `FEAT-IDEMPOTENCY-AND-REPLAY` | Idempotency and Replay | `shipped` | `idempotency-protocol` |
+| `FEAT-POSTURE-BOOTSTRAP` | Posture Bootstrap | `shipped` | `posture-bootstrap` |
+| `FEAT-RUN-LIFECYCLE-CONTROL` | Run Lifecycle Control | `shipped` | `runtime-run-lifecycle` |
+| `FEAT-SUSPEND-RESUME-CONTROL` | Suspend and Resume Control | `shipped` | `run-suspension-orchestration` |
+| `FEAT-TENANT-ISOLATION` | Tenant Isolation | `shipped` | `tenant-isolation` |
 
-## 2. Numbering convention
+## 2. Architecture Binding
 
-- `AS-L1-F<N>` — Agent-Service L1 Feature N. Stable across waves; reorder forbidden. New features get the next free ID; deprecated features keep their ID with a `status: deprecated` row.
-- `AS-SC<N>` — Agent-Service Scenario Cluster N. Defined in [`../scenarios.md`](../scenarios.md) §0.1. Each feature row's `Covered clusters` column references one or more AS-SC IDs which anchor back to canonical scenarios S1..S5 in `scenarios.md`.
+### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
-## 3. Relationship to canonical 4+1 views
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/engine`
+- `agent-execution-engine/src/main/java`
 
-These feature files are an **L1 module-feature decomposition** for downstream design grounding. They do NOT replace the canonical 4+1 source under `../{scenarios,logical,process,physical,development,spi-appendix}.md`. Where this directory and the per-view files disagree, the per-view files win (same precedence rule as ADR-0143 review-record demotion).
+**Source ADR:** `ADR-0088`
 
-Concretely:
-- **Scenarios anchor** — every AS-L1-F row cites AS-SC IDs from `../scenarios.md`; AS-SC IDs in turn anchor to S1..S5.
-- **Logical-view anchor** — module names match the 5-layer service architecture in `../logical.md` §1 (with the 5a/5b split per ADR-0140).
-- **SPI anchor** — capability rows that reference a typed contract (e.g. AS-L1-F33 EngineRegistry) MUST also appear in `../spi-appendix.md` if the SPI is shipped.
-- **Configuration ownership anchor** — the per-module sovereign/consumer roles in §5 of the absorbed source file are folded into `../logical.md` §10.
-- **Orthogonality anchor** — the 8 boundary red-lines from §7 of the absorbed source file are folded into `../logical.md` §11.
+### `FEAT-IDEMPOTENCY-AND-REPLAY`
 
-## 4. What changes when a feature ships
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency`
 
-When a `proposed` feature row gets shipped Java code:
-- The feature stays in this file but its row gains a `Shipped at:` column noting the Java FQN.
-- The shipping happens via an impl-mode wave; this directory's front-matter `status:` flips to `shipped` only when ALL rows in the file have shipped material OR the module reaches its design-only ceiling (e.g. Internal Event Queue stays `design_only` per ADR-0141 until a queue code home lands).
+**Source ADR:** `ADR-0027`
 
-## 5. Out of scope
+### `FEAT-POSTURE-BOOTSTRAP`
 
-This directory does NOT contain:
-- Sequence diagrams (those live in `../process.md` — P1..P6).
-- ER diagrams (those live in `../logical.md` §2).
-- Package trees (those live in `../development.md` §1).
-- Deployment plane mapping (those live in `../physical.md` §1).
-- SPI 4-way parity table (lives in `../spi-appendix.md`).
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/platform/posture`
 
-If a feature requires expressing one of those, edit the canonical per-view file and link from here.
+**Source ADR:** `ADR-0055`
+
+### `FEAT-RUN-LIFECYCLE-CONTROL`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/runs`
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/state`
+
+**Source ADR:** `ADR-0020`
+
+### `FEAT-SUSPEND-RESUME-CONTROL`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/suspend`
+
+**Source ADR:** `ADR-0058`
+
+### `FEAT-TENANT-ISOLATION`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/platform/tenant`
+- `agent-service/src/main/resources/db/migration`
+
+**Source ADR:** `ADR-0030`
+
+## 3. Functional Decomposition
+
+This module's features and their function-point membership are wired
+by `contains` relationships in
+[`architecture/features/features.dsl`](../../../../features/features.dsl).
+Walk the workspace projection from each feature ID to traverse the
+function-point inventory.
+
+- `FEAT-ENGINE-DISPATCH-AND-HOOKS` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-IDEMPOTENCY-AND-REPLAY` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-POSTURE-BOOTSTRAP` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-RUN-LIFECYCLE-CONTROL` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-SUSPEND-RESUME-CONTROL` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-TENANT-ISOLATION` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+
+## 4. Contract Surface
+
+Runtime promise surfaces touched by this module's features. For the
+full catalog, see
+[`docs/contracts/contract-catalog.md`](../../../../../docs/contracts/contract-catalog.md).
+
+## 5. Runtime Behavior
+
+### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
+
+Owns the engine boundary: every Run dispatch goes through EngineRegistry.resolve(envelope) against engine-envelope.v1.yaml; pattern-matching on ExecutorDefinition subtypes outside the registry is forbidden (Rule R-M.a). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware listening on canonical HookPoint events from engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors.
+
+### `FEAT-IDEMPOTENCY-AND-REPLAY`
+
+Owns idempotency at the public API boundary: IdempotencyHeaderFilter extracts the Idempotency-Key header and consults IdempotencyStore (Postgres-backed, NOT NULL + UNIQUE on (tenantId, key)) to either claim a fresh slot or replay the stored response. The store carries the response envelope so replay is byte-identical without re-executing the Run. Tenant isolation is enforced at the storage engine (Rule R-J).
+
+### `FEAT-POSTURE-BOOTSTRAP`
+
+Owns posture-aware startup: PostureBootGuard validates @RequiredConfig-annotated configuration properties before the runtime accepts traffic. In research and prod postures the boot fails closed on missing config; in dev posture it logs and allows. Posture is determined by spring.profiles.active; the guard runs in @Order(0) so misconfiguration surfaces before any framework wiring. Default posture is dev when unset, per the explicit fail-loud-on-prod-misconfig discipline of Rule D-6.
+
+### `FEAT-RUN-LIFECYCLE-CONTROL`
+
+Owns the public Run lifecycle surface — POST /v1/runs admission with tenant + idempotency + posture guard, POST /v1/runs/{id}/cancel re-validation and DFA transition to CANCEL_REQUESTED, GET /v1/runs/{id} tenant-scoped polling, GET /v1/runs paginated listing, and the CAS-based RunRepository.updateIfNotTerminal atomic transition that backs all of them. Run state changes are protected by the DFA in RunStateMachine; every persisted Run carries tenantId enforced by NOT NULL + RLS. Public endpoint behavior described by openapi-v1.yaml.
+
+### `FEAT-SUSPEND-RESUME-CONTROL`
+
+Owns Run-level suspension and resume: SuspendSignal sealed-type variants (forClientCallback, forChildRun, forRateLimit, forCheckpoint) cause Run to transition to SUSPENDED with a typed SuspendReason; ResumeDispatcher transitions back to RUNNING when the suspension condition resolves. Child-run spawn is a SuspendSignal variant — parent suspends until child reaches terminal state. The full state machine is encoded in RunStateMachine and validated by every persisted transition.
+
+### `FEAT-TENANT-ISOLATION`
+
+Owns tenant isolation across the surface: every tenant-scoped HTTP request cross-checks JWT.tenant claim against the IngressEnvelope.tenantId (Rule R-J); every tenant-bearing Flyway migration enables Postgres Row-Level Security on the same migration (Rule R-J.a); cross-tenant access at the cancel endpoint collapses to 404 not_found at W0 (deferred 403 widening per ADR-0108). The tenant contract is enforced at three layers: HTTP edge, repository layer, and storage engine.
+
+## 6. DFX Requirements
+
+DFX dimensions for `agent-service` are declared in
+[`docs/dfx/agent-service.yaml`](../../../../../docs/dfx/agent-service.yaml).
+Per-feature DFX deltas (if any) are tracked alongside the FEAT-
+element in `architecture/features/features.dsl`.
+
+## 7. AI Execution Boundary
+
+Machine-readable AI boundary per feature (5 saa.aiBoundary.* sub-keys).
+AI agents acting on this module MUST consult these before auto-modifying:
+
+| Feature | Can modify code | Can modify contracts | Allowed transitions | Requires human review at | Sandbox policy |
+|---|---|---|---|---|---|
+| `FEAT-ENGINE-DISPATCH-AND-HOOKS` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-IDEMPOTENCY-AND-REPLAY` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-POSTURE-BOOTSTRAP` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-RUN-LIFECYCLE-CONTROL` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-SUSPEND-RESUME-CONTROL` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-TENANT-ISOLATION` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+
+## 8. Verification Matrix
+
+Tests + commands that verify each feature. AI agents MUST run these
+commands after auto-modifying the feature's owning code.
+
+### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.engine.EngineRegistryIT`
+- `com.huawei.ascend.service.runtime.engine.HookDispatchTest`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+- `./mvnw -pl agent-execution-engine -am verify`
+
+### `FEAT-IDEMPOTENCY-AND-REPLAY`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.idempotency.IdempotencyHeaderFilterIT`
+- `com.huawei.ascend.service.runtime.idempotency.IdempotencyStoreTest`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-POSTURE-BOOTSTRAP`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.platform.posture.PostureBootGuardIT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-RUN-LIFECYCLE-CONTROL`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.runs.RunsControllerIT`
+- `com.huawei.ascend.service.runtime.runs.RunStateMachineTest`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+- `bash gate/check_architecture_sync.sh`
+
+### `FEAT-SUSPEND-RESUME-CONTROL`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.suspend.SuspendResumeIT`
+- `com.huawei.ascend.service.runtime.suspend.ChildRunSpawnIT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-TENANT-ISOLATION`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.runs.CancelRunCrossTenantIT`
+- `com.huawei.ascend.service.platform.tenant.TenantClaimFilterTest`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+## 9. Lifecycle / Governance
+
+Feature lifecycle state machine (Rule G-14):
+
+```
+proposed -> accepted -> design_only -> ready_for_impl
+                                    -> implemented_unverified
+                                    -> test_verified -> shipped
+                                    -> deprecated -> removed
+```
+
+Current state per feature:
+
+- `FEAT-ENGINE-DISPATCH-AND-HOOKS` — `shipped`
+- `FEAT-IDEMPOTENCY-AND-REPLAY` — `shipped`
+- `FEAT-POSTURE-BOOTSTRAP` — `shipped`
+- `FEAT-RUN-LIFECYCLE-CONTROL` — `shipped`
+- `FEAT-SUSPEND-RESUME-CONTROL` — `shipped`
+- `FEAT-TENANT-ISOLATION` — `shipped`
+
+Status transitions are governed by Rule G-14 (advisory at W1, blocking
+at W5 after soak). Forward-only by default; backward transitions
+require an ADR `extends:` or `relates_to:` the feature's source ADR.
+

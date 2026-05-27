@@ -1,23 +1,25 @@
 ---
 level: L1
 view: scenarios
-status: template
-authority: "ADR-0151 (L1 Feature Registry canonical schema), ADR-0152 (Uniform L1 mechanism)"
+status: shipped
+authority: "ADR-0151 (L1 Feature Registry canonical schema) + ADR-0152 (uniform L1 + W3 catalog rendering)"
 ---
 
-# `agent-client` — Features and Function Points
+<!-- DO NOT HAND-EDIT. Rendered from architecture/features/features.dsl by gate/lib/render_features_catalog.py. Re-emit via that script; render-idempotency is enforced by Rule G-13.b. -->
 
-<!-- W3-rendered: this file is RENDERED from architecture/features/features.dsl filtered by saa.owner==agent-client via l1-features-catalog.md.j2. Do not hand-edit. -->
+# `agent-client` — L1 Feature Catalog (9-section)
 
-The feature inventory for `agent-client` is mounted in the workspace at
-`architecture/features/*.dsl`. Render this catalog by:
+This catalog is the **rendered** human-readable view of the
+`agent-client`-owned features registered in
+[`architecture/features/features.dsl`](../../../../features/features.dsl).
+The structured source is the DSL; this Markdown is byte-identical
+on re-emit. The 9 sections follow the user-supplied L1 Feature
+Catalog template (ADR-0151).
 
-```bash
-python3 gate/lib/render_template.py docs/governance/templates/l1-features-catalog.md.j2     --module agent-client     --output architecture/docs/L1/agent-client/features/README.md
-```
+## 0. No features registered yet for this module
 
-For the schema, see [`architecture/features/README.md`](../../../../features/README.md).
+The module `agent-client` has no SAA Feature elements declared in
+`architecture/features/features.dsl` at this commit. As features
+are authored (see [`architecture/features/README.md`](../../../../features/README.md)
+for the recipe), they will appear here on re-emit.
 
-## Feature inventory
-
-(Rendered at W3.)

@@ -1,14 +1,29 @@
-# architecture/docs/
+---
+level: L0
+view: scenarios
+status: shipped
+authority: "ADR-0150 (W8 docs consolidation) + ADR-0152 (W2 uniform L1 + L0 mounting)"
+---
 
-**AUTHORED ZONE.** Engineers edit these files directly.
+# `architecture/docs/` — Architecture Documentation
 
-Wave 2 of the Structurizr workspace authority migration populates
-`architecture/docs/L1/<module>.md`: one Markdown narrative per L1 module
-describing capabilities, scenarios, and key flows.
+This directory holds the **human-readable companion** to the machine-readable
+workspace at [`../workspace.dsl`](../workspace.dsl). Three layers:
 
-Wave 4 rewires the existing `docs/governance/templates/*.j2` Jinja2 templates
-to ingest workspace-derived JSON for STRUCTURAL sections (modules, SPI
-packages, capabilities) while continuing to read narrative sections from
-files under `architecture/docs/L1/`.
+- **L0** — declarative system boundary + 65 §4 architectural constraints. See [L0/ARCHITECTURE.md](L0/ARCHITECTURE.md).
+- **L1** — per-module design (every `kind: domain` module). See [L1/README.md](L1/README.md).
+- **L2** — deeper subsystem designs. See [L2/README.md](L2/README.md).
 
-Wave 5 declares these files canonical L1 narrative.
+For the architecture authority itself (the machine-readable model and its
+typed graph), open [`../workspace.dsl`](../workspace.dsl). This `docs/`
+subtree is the prose companion; the workspace is the canonical model.
+
+## Reading path
+
+1. [`../workspace.dsl`](../workspace.dsl) + [`../README.md`](../README.md) — architecture authority entry point.
+2. [`L0/ARCHITECTURE.md`](L0/ARCHITECTURE.md) — declarative L0 constraints.
+3. [`L1/<module>/`](L1/) — pick your module; read its canonical 8-file set (README, ARCHITECTURE, 4+1 views, spi-appendix, features/README).
+4. [`L2/`](L2/) — deeper subsystem designs (where applicable).
+
+The 7-step Reading path declared in repo-root [`../../README.md`](../../README.md#reading-path)
+covers `architecture/docs/` as steps 2-4 of the full architecture surface.
