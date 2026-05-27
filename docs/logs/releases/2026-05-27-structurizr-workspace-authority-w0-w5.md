@@ -7,6 +7,8 @@ authority: "ADR-0149 (W0..W5 shipped record)"
 
 # 2026-05-27 — Structurizr Workspace Authority W0..W5 Shipped
 
+> **Historical artifact frozen at SHA 825a8e2** (W7 closure commit on the W7 branch). Baseline counts in §0 reflect the W7 snapshot (134 ADRs / 623 nodes / 1188 edges). The current canonical baseline post-W8 (135 ADRs / 626 nodes / 1197 edges / 34 families) lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim`; see `docs/logs/releases/2026-05-27-structurizr-w8-docs-consolidation.md` for the W8 update.
+
 **Branch:** `feature/structurizr-workspace-authority`
 **Commits:** `9611096..1026bbc` (six waves), plus `16cbe27` (W6 roadmap),
 plus this commit (W7 closure ADR + release note).

@@ -162,7 +162,7 @@ flowchart LR
   cross-plane interaction at the message level.
 - Development: [`development.md`](development.md) — package tree +
   layer↔package matrix.
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md)
+- Module-root grounding: [`ARCHITECTURE.md`](ARCHITECTURE.md)
   §4 OSS dependencies + §6 Posture-aware defaults.
 - Governance manifests: [`bus-channels.yaml`](../../../../docs/governance/bus-channels.yaml),
   [`sandbox-policies.yaml`](../../../../docs/governance/sandbox-policies.yaml),

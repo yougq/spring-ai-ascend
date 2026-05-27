@@ -8,7 +8,7 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0099 (rc22
 
 # agent-service — SPI Interface Appendix
 
-> Authoring source: `agent-service/ARCHITECTURE.md` §SPI Interface Appendix + rc53 review file §19, ported in rc55 W5 with corrections:
+> Authoring source: `ARCHITECTURE.md` §SPI Interface Appendix + rc53 review file §19, ported in rc55 W5 with corrections:
 >
 > - **M4** (`F-cross-authority-agreement`): the SPI table uses the canonical `TaskStateStore` name (matches `module-metadata.yaml#spi_packages` + shipped Java `service.task.spi.TaskStateStore`); the legacy `TaskRepository` prose in ARCHITECTURE.md §11 is wrong and corrected during rc55 W2.
 > - **M10** (`F-spi-package-bloat-with-carriers`): the rc55 cited surface was MIS-IDENTIFIED in the original audit — `service.runtime.memory.spi` has 1 interface + 0 carriers (clean) per the rc55 W0 sibling sweep. The actual offenders are 12 OTHER `*.spi.*` packages across agent-middleware + agent-execution-engine + agent-service per the sibling-sweep report; the systemic Java refactor is OUT OF SCOPE for rc55 and DEFERRED to a follow-up impl-mode wave. §3 of this appendix documents the systemic gap.
@@ -149,4 +149,4 @@ agent-service CONSUMES SPIs from the modules declared in
 - Source: `agent-service/src/main/java/com/huawei/ascend/service/**/spi/*.java`.
 - Development View: [`development.md`](development.md) §1 + §2 (tree + layer matrix).
 - Logical View: [`logical.md`](logical.md) §6 (vocabulary glossary — distinct mechanisms not aliases).
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md) §SPI Interface Appendix (legacy table retained for shipped-state context; this canonical appendix takes precedence per ADR-0143).
+- Module-root grounding: [`ARCHITECTURE.md`](ARCHITECTURE.md) §SPI Interface Appendix (legacy table retained for shipped-state context; this canonical appendix takes precedence per ADR-0143).

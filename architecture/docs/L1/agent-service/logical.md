@@ -514,7 +514,7 @@ classDiagram
   layer↔package matrix per ADR-0144, 5 L2 Boundary Contracts.
 - SPI Appendix: [`spi-appendix.md`](spi-appendix.md) — 9 active SPI
   interfaces with 4-way parity (Rule G-1.1.b).
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md)
+- Module-root grounding: [`ARCHITECTURE.md`](ARCHITECTURE.md)
   §1-§9.
 - Contract anchors: [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml),
   [`docs/contracts/engine-envelope.v1.yaml`](../../../../docs/contracts/engine-envelope.v1.yaml),

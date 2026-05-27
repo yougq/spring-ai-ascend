@@ -198,7 +198,7 @@ the scenarios surface; any draft that violates one is rejected.
   + 5 L2 Boundary Contracts lives in [`development.md`](development.md).
 - SPI Appendix: 9 active SPI interfaces with 4-way parity per Rule
   G-1.1.b lives in [`spi-appendix.md`](spi-appendix.md).
-- Module-root grounding: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md)
+- Module-root grounding: [`ARCHITECTURE.md`](ARCHITECTURE.md)
   carries shipped-state implementation details + dependencies + wave
   plan + risks.
 - Historical: rc53 review file [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../../../../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md)

@@ -13,7 +13,7 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 
 > Wave: rc55 W3-W5 + audit-2026-05-27 corrections; per-view content is active.
 > Canonical 4+1 source per ADR-0143: the 5 per-view files + spi-appendix in this directory.
-> Module-root L1 spec: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md) carries shipped-state grounding + cross-links here.
+> Module-root L1 spec: [`ARCHITECTURE.md`](ARCHITECTURE.md) carries shipped-state grounding + cross-links here.
 > Front-matter declares full 4+1 coverage per AUD-2026-05-27 PR77-P2-3 closure.
 
 ## 0. Why this directory exists
@@ -70,7 +70,7 @@ authored:
 |---|---|---|
 | W0 | ✅ completed | Family classification + sibling sweep ([`2026-05-26-agent-service-l1-sibling-sweep.en.md`](../../../../docs/logs/reviews/2026-05-26-agent-service-l1-sibling-sweep.en.md)) |
 | W1 | ✅ completed | 6 ADRs (0140-0145) + `docs/contracts/run-event.v1.yaml` + baseline lockstep |
-| W2 | ✅ completed | Directory skeletons + Jinja templates + surface-classification.yaml + agent-service/ARCHITECTURE.md §0.5 rewrite + frontmatter narrowing |
+| W2 | ✅ completed | Directory skeletons + Jinja templates + surface-classification.yaml + ARCHITECTURE.md §0.5 rewrite + frontmatter narrowing |
 | W3 | ✅ completed | scenarios.md + logical.md content authoring |
 | W4 | ✅ completed | process.md + physical.md content authoring |
 | W5 | ✅ completed | development.md + spi-appendix.md content authoring |
@@ -80,7 +80,7 @@ authored:
 ## 4. Cross-links
 
 - L0: root [`ARCHITECTURE.md`](../../../../ARCHITECTURE.md) — platform-level 4+1
-- L1 module root: [`agent-service/ARCHITECTURE.md`](ARCHITECTURE.md) — shipped-state grounding + dependencies + wave plan
+- L1 module root: [`ARCHITECTURE.md`](ARCHITECTURE.md) — shipped-state grounding + dependencies + wave plan
 - Sibling L1 modules: [`agent-bus`](../agent-bus.md) · [`agent-client`](../agent-client.md) · [`agent-evolve`](../agent-evolve.md) · [`agent-execution-engine`](../agent-execution-engine.md) · [`agent-middleware`](../agent-middleware.md)
 - L2: TBD — first L2 design will likely cover (a) Postgres RLS migration sequence, (b) Reactive Orchestrator backpressure protocol, (c) Run lifecycle extended for Session decoupling (per review §20 L2 zones)
 - Rule cards: [G-1](../../../../docs/governance/rules/rule-G-1.md), [G-1.1](../../../../docs/governance/rules/rule-G-1.1.md), [G-13](../../../../docs/governance/rules/rule-G-13.md), [R-C.2](../../../../docs/governance/rules/rule-R-C.2.md), [R-E](../../../../docs/governance/rules/rule-R-E.md), [R-J](../../../../docs/governance/rules/rule-R-J.md), [R-M](../../../../docs/governance/rules/rule-R-M.md)
