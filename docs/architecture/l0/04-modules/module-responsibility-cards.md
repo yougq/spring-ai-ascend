@@ -17,7 +17,7 @@ status: draft
 ## 维护规则
 
 - 核心 `Module Name` 必须是通过 Overview 准入判定的 Architecture Module / Runtime Component。
-- `Owned State` 必须与 [State Ownership Matrix](../03-state/state-ownership-matrix.md) 一致。
+- `Owned State` 必须与 [State Ownership Matrix](../06-state/state-ownership-matrix.md) 一致。
 - 能力聚合只出现在 `Provided Capabilities` / `Consumed Capabilities`，不得冒充模块。
 - `Participating Scenarios` 必须优先列 BA-* 业务活动场景，再列 technical sub-scenario。
 - 涉及 local client、business service、platform hosted service、platform middleware、federation remote 时，必须说明本模块在 capability placement 中承担什么，不承担什么。
@@ -60,7 +60,7 @@ status: draft
 | Platform / Business Ownership | 平台拥有 runtime control、Task lifecycle、LLM cost attribution 和观测面；业务通过 AgentDefinition、SPI、客户数据源授权引用和配置接入。 |
 | Evolution Direction | 保持 Task lifecycle single owner，逐步把历史 Run 命名收敛为 client invocation 兼容，把 design_only agentic surface、Task tree query、developer evidence query 绑定到 runtime。 |
 | Development Pack | [agent-service/README.md](agent-service/README.md) |
-| Open Issues | Agent / runtime adapter contract、Task tree query、developer evidence query 仍需要正式 ICD 和 harness；详见 [agent-service/open-issues.md](agent-service/open-issues.md)。 |
+| Open Issues | Agent / runtime adapter contract、Task tree query、developer evidence query 仍需要正式 ICD 和 harness；详见 [agent-service/open-issues.md](../l1/agent-service/10-governance/open-issues.md)。 |
 
 ## MOD-002 `agent-execution-engine`
 

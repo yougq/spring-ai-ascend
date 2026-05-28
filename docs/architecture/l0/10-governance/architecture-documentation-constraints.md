@@ -334,7 +334,7 @@ Harness Generation Notes
 **检查方式：**
 
 - Overview 的核心场景索引主表必须是 BA-*。
-- `06-scenarios/README.md` 必须区分业务活动级核心场景和 `technical/` 子场景。
+- `02-scenarios/README.md` 必须区分业务活动级核心场景和 `technical/` 子场景。
 - 新增 BA-* 时必须进入 Verification Matrix；新增 technical scenario 时必须说明所属 BA-* 或标记为 future / open issue。
 
 **适用文档：** Overview、Scenario Specs、Capability Map、Verification Matrix、Architecture Review Process。
@@ -343,7 +343,7 @@ Harness Generation Notes
 
 **规则：** `docs/architecture/` 下的一级目录和具有独立职责的重要二级目录必须登记到 [Document Artifact Catalog](document-artifact-catalog.md)，并说明主要内容、主要作用、对应 A2D 活动、下级展开规则和质量检查点。
 
-文件级管理不在顶层 catalog 中强制展开。目录内部文件由目录 README、模块 README 或模块级 catalog 管理。`02-modules/<module>/` 这类模块目录可以拥有自己的文件组织方法，但必须在模块 README 中说明。
+文件级管理不在顶层 catalog 中强制展开。目录内部文件由目录 README、模块 README 或模块级 catalog 管理。`04-modules/<module>/` 这类模块目录可以拥有自己的文件组织方法，但必须在模块 README 中说明。
 
 **禁止模式：**
 

@@ -4,136 +4,37 @@ view: governance
 status: draft
 ---
 
-# A2D Working Model
+# A2D 工作模型（内核）
 
 ## 目的
 
-定义从 Architecture 到 Delivery 的协作方法，明确每个管理活动的触发条件、输入、流程、产出物、责任人、归档位置和退出标准。
+A2D（Architecture to Delivery）是 AI 将版本意图批量转化为可审阅架构和可交付实现的推理、编辑、验证与追踪模型。
 
-A2D 不是目录结构，也不是一批静态文档，也不是逐需求人工审批流。A2D 是 AI 将版本意图批量转化为可审阅架构和可交付实现的推理、编辑、验证与追踪模型。
+A2D 不是目录结构，也不是一批静态文档，也不是逐需求人工审批流。目录只负责归档活动产物。
 
-A2D 的内部活动链路如下：
-
-```text
-需求进入 -> 架构准入 -> 场景建模 -> 能力拆解 -> 模块承接
--> 状态与契约 -> 模块设计 -> harness 设计 -> 实现任务
--> 集成验证 -> 版本归档
-```
-
-目录只负责归档活动产物。每个活动必须先定义“要产出什么”，再定义“这个产物归档到哪里”。
+本文是 A2D 的精简内核，包含跨阶段共享的信息。每个阶段的具体操作步骤、输入输出和退出条件定义在对应的阶段契约中。
 
 ## 版本级自动化模型
 
-A2D 默认以版本为单位运行。人类集中注入版本意图和架构边界，AI 在边界内批量完成分析、文档编辑、任务拆解、实现、验证和归档。只有越过已确认边界、出现高风险冲突或验证无法闭环时，AI 才升级给人类裁决。
+A2D 默认以版本为单位运行。人类集中注入版本意图和架构边界，AI 在边界内批量完成分析、文档编辑、任务拆解、实现、验证和归档。
 
 ```text
 H0 人类注入版本意图
--> AI-1 需求归一化与分流
--> AI-2 架构影响分析
--> AI-3 生成版本架构边界
--> H1 人类确认版本架构边界
--> AI-4 批量生成或更新 A2D 产物
--> AI-5 生成 4+1 评审视图
--> AI-6 生成交付视图
--> H2 人类集中审核架构包
--> AI-7 自动实现、文档回写、测试补齐
--> AI-8 集成验证与架构漂移检查
--> H3 人类审核例外、风险和发布证据
--> AI-9 版本归档
+ -> AI-1 需求归一化与分流        [阶段契约: a2d-phases/phase-intake.md]
+ -> AI-2 架构影响分析            [阶段契约: a2d-phases/phase-impact.md]
+ -> AI-3 生成版本架构边界        [阶段契约: a2d-phases/phase-envelope.md]
+H1 人类确认版本架构边界
+ -> AI-4 批量生成 A2D 产物       [阶段契约: a2d-phases/phase-produce.md]
+ -> AI-5 生成 4+1 评审视图       [阶段契约: a2d-phases/phase-review-view.md]
+ -> AI-6 生成交付视图            [阶段契约: a2d-phases/phase-delivery-view.md]
+H2 人类集中审核架构包
+ -> AI-7 自动实现               [阶段契约: a2d-phases/phase-implement.md]
+ -> AI-8 集成验证与漂移检查      [阶段契约: a2d-phases/phase-verify.md]
+H3 人类审核例外和发布风险
+ -> AI-9 版本归档               [阶段契约: a2d-phases/phase-archive.md]
 ```
 
-### 版本意图
-
-版本意图是人类对本版本的集中输入，不要求人类先写完整设计。它至少应说明：
-
-| 字段 | 含义 |
-|---|---|
-| `version_goal` | 本版本要达成的业务或平台目标。 |
-| `functional_requirements` | 本版本纳入的功能需求。 |
-| `non_functional_requirements` | 性能、可用性、隔离、观测、安全、成本、演进等非功能需求。 |
-| `must_keep` | 不允许改变的架构边界、状态 owner、公开契约、兼容性要求或治理规则。 |
-| `allowed_change_scope` | AI 可自动修改的模块、文档、测试、配置和契约草案范围。 |
-| `risk_budget` | 可接受风险、必须升级风险和不允许进入本版本的风险。 |
-| `release_bar` | 本版本必须通过的 gate、Maven、契约、场景、harness 或人工验证。 |
-
-### 版本架构边界
-
-版本架构边界是 AI 根据版本意图和现有基线生成的版本级自动化边界。人类确认后，AI 可以在该边界内自动推进；边界外必须升级。
-
-| 字段 | 含义 |
-|---|---|
-| `accepted_goals` | 本版本接受的目标。 |
-| `accepted_non_goals` | 明确不做或后续处理的目标。 |
-| `allowed_module_changes` | 可自动调整的模块职责、模块文档和代码范围。 |
-| `forbidden_module_changes` | 不得自动改变的模块边界或依赖方向。 |
-| `allowed_contract_changes` | 可自动处理的增量契约、ICD 或 schema 草案变更。 |
-| `forbidden_contract_changes` | 破坏兼容的契约变化、必填字段变化，或必须进入 ADR / CR 的契约变化。 |
-| `state_ownership_policy` | 状态 owner、writer、reader、forbidden writer 的保持或变更规则。 |
-| `compatibility_policy` | 兼容性、迁移、废弃和回滚要求。 |
-| `verification_required` | 必须生成或更新的验证矩阵、harness、测试和 gate 证据。 |
-| `escalation_conditions` | AI 必须停止自动推进并请求人类裁决的条件。 |
-
-默认升级条件包括：
-
-- 改变状态 owner、writer 或跨模块控制权 owner。
-- 引入破坏兼容的契约变化或必填字段语义变化。
-- 绕过已确认模块边界、依赖方向或公开 SPI。
-- 需求与 `CLAUDE.md`、正式 ADR、契约目录或治理规则冲突。
-- 关键风险无法进入验证矩阵、harness 或测试证据。
-- 实现结果偏离版本架构边界、4+1 评审视图或交付视图。
-
-### 人类检查点
-
-人类不逐需求审批 A2D 内部活动。人类只在版本级检查点集中介入：
-
-| 检查点 | 人类确认什么 | AI 提供什么 |
-|---|---|---|
-| H1 版本架构边界确认 | 版本目标、范围、非目标、自动化边界、升级条件和风险预算。 | 版本意图归一化结果、架构影响矩阵、版本架构边界草案。 |
-| H2 架构审核包确认 | 4+1 架构是否成立、交付视图是否可落地、哪些例外必须裁决。 | 4+1 评审视图、交付视图、变更级别汇总、开放问题、验证增量。 |
-| H3 发布例外审核 | 剩余例外、失败或跳过的验证、架构漂移、发布风险是否可接受。 | 验证汇总、架构漂移报告、升级项、发布风险说明、基线说明草案。 |
-
-检查点通过后，AI 在已确认范围内继续自动推进；只有触发升级条件（`escalation_conditions`）时才打断人类。
-
-## 双视图模型
-
-A2D 的已接受产物（`accepted`）必须同时服务两个消费视角：
-
-1. **交付视图**：把架构内容映射为可交付代码所需的开发计划、开发说明、任务拆解、DoD、harness、测试和验证证据。
-2. **4+1 评审视图**：把架构内容映射为人类可审阅并可裁决的逻辑、开发、进程、物理和场景视图。
-
-这两个视图不得各自维护事实。它们必须引用同一批 A2D 已接受产物，例如场景、能力、模块责任卡、状态归属矩阵、ICD、不变量、harness 设计和验证矩阵。关键设计项通常必须同时进入两个视图；如果只能进入其中一个视图，必须在对应产物中说明原因和风险。
-
-| 视图 | 面向对象 | 回答的问题 | 主要来源 |
-|---|---|---|---|
-| 交付视图 | 开发者、模块负责人、AI agent、harness 生成器 | 如何实现、如何拆任务、如何验证、完成标准是什么。 | A3 能力拆解、A4 模块承接、A5 状态与契约、A6 模块设计、A7 harness、A8 实现任务。 |
-| 4+1 评审视图 | 架构负责人、评审者、业务负责人、模块负责人 | 架构是否成立、边界是否清楚、风险是否可接受、哪些问题需要裁决。 | A1 架构准入、A2 场景建模、A3 能力拆解、A4 模块承接、A5 状态与契约、A9 架构评审。 |
-
-4+1 评审视图是审阅视图，不替代 A2D 归档结构。人类评审时应优先审阅视图包，再按需要跳转到原始 A2D 产物。
-
-## 适用读者
-
-业务负责人、架构负责人、模块负责人、开发者、评审者、AI agent、harness 生成器。
-
-## 维护规则
-
-- 每个 A2D 活动必须使用统一结构：触发条件、输入、流程、产出物与归档、退出标准。
-- “产出物与归档”必须逐项对齐，不得出现产出物没有归档位置，或归档位置没有对应产出物。
-- A2D 内部活动默认由 AI 批量执行，不得把每个需求都升级成人工审批点。
-- AI 可以生成草稿、整理冲突、维护追踪矩阵、提出 harness 建议并在版本架构边界内自动实现，但不能替代人类做版本级架构裁决、例外接受或发布审批。
-- 架构裁决应集中在 H1 / H2 / H3 检查点；检查点通过后，边界内事项不再逐条要求人工确认。
-- 新增活动、产物或归档位置时，必须同步更新本文档和 [README](../README.md) 的文档地图。
-- 如果活动产物与权威来源冲突，以 `CLAUDE.md`、`docs/adr/`、`docs/governance/architecture-status.yaml` 和正式契约目录为准。
-
-## 角色与责任
-
-| 角色 | 核心责任 | 不负责 |
-|---|---|---|
-| 业务负责人 | 提供业务目标、用户类型、关键场景、优先级和业务验收口径。 | 不裁决模块边界和状态 owner。 |
-| 架构负责人 | 裁决模块边界、状态归属、跨模块契约、架构约束和变更级别。 | 不替代模块负责人完成模块内部设计。 |
-| 模块负责人 | 细化模块职责、内部流程、状态机、接口语义、开发切片和 harness。 | 不单方面改变 L0/L1 架构边界。 |
-| 开发者 | 根据已确认的设计包实现代码、测试和必要的验证证据。 | 不在没有设计输入时直接创造跨模块语义。 |
-| 评审者 | 检查架构一致性、可实现性、可验证性和风险覆盖。 | 不把评审评论当成唯一归档位置。 |
-| AI agent | 整理输入、生成草稿、发现冲突、维护追踪、生成测试建议和任务草案。 | 不做最终业务承诺、架构裁决或发布审批。 |
+人类视角的完整流程见 [a2d-human-checkpoints.md](a2d-human-checkpoints.md)。
 
 ## 产物状态
 
@@ -147,565 +48,42 @@ A2D 的已接受产物（`accepted`）必须同时服务两个消费视角：
 
 ## 归档位置约定
 
-| 产物类型 | 默认归档位置 | 说明 |
-|---|---|---|
-| 原始需求记录 | [task.md](../task.md) | 早期讨论、未结构化输入、临时记录。 |
-| 版本意图 | `docs/architecture/l0/10-governance/version-intents/<version>.md` | 版本目标、功能需求、非功能需求、非目标、约束和发布门槛。 |
-| 版本架构边界 | `docs/architecture/l0/10-governance/architecture-envelopes/<version>.md` | AI 自动推进的架构边界、允许变更、禁止变更和升级条件。 |
-| 架构审核包 | `docs/architecture/l0/10-governance/review-packets/<version>.md` | 4+1 评审视图、决策摘要、影响面、冲突和人工裁决项。 |
-| 交付视图 | `docs/architecture/l0/10-governance/delivery-projections/<version>.md` | 开发切片、实现任务、DoD、harness 计划和验证证据索引。 |
-| A2D Intake Record | `docs/architecture/l0/10-governance/a2d-intake/<id>.md` | 结构化需求入口。 |
-| Admission Decision | `docs/architecture/l0/10-governance/admission-decisions/<id>.md` | 准入分类和处理结论。 |
-| Conflict / Open Issue | [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) 或模块 `open-issues.md` | 全局冲突进 inventory，模块内部问题进模块目录。 |
-| Business Activity Scenario | `docs/architecture/l0/06-scenarios/BA-xxx-*.md` | 系统级业务活动场景。 |
-| Technical Scenario | `docs/architecture/l0/06-scenarios/technical/Sx-*.md` | 技术机制子场景。 |
-| Module Scenario Projection | `docs/architecture/l0/02-modules/<module>/scenarios/<scenario-id>.md` | 模块视角承接系统场景的一部分。 |
-| Capability Map / Capability Detail | [capability-map.md](../01-capabilities/capability-map.md) 或 `docs/architecture/l0/01-capabilities/<capability-id>.md` | 能力总览和能力细化。 |
-| Module Responsibility Card | [module-responsibility-cards.md](../02-modules/module-responsibility-cards.md) | 模块职责总览。 |
-| 模块设计包 | `docs/architecture/l0/02-modules/<module>/` | 模块详细设计包。 |
-| State Ownership Matrix | [state-ownership-matrix.md](../03-state/state-ownership-matrix.md) | 状态 owner、writer、reader、forbidden writer。 |
-| Human-readable ICD | `docs/architecture/l0/05-contracts/human-readable/*.md` | 人类可读交互契约。 |
-| Machine-readable Contract Draft | `docs/architecture/l0/05-contracts/machine-readable/*.yaml` | harness-first 机器可读草案。 |
-| Harness Design | `docs/architecture/l0/08-harness/*.md` 或 `docs/architecture/l0/02-modules/<module>/harness-design.md` | 系统级或模块级 harness 设计。 |
-| Verification Matrix Row | [verification-matrix.md](../09-verification/verification-matrix.md) | 设计项到验证证据的追踪。 |
-| 基线说明 | `docs/architecture/l0/10-governance/baselines/<version>.md` | 阶段性版本归档。 |
-
-## A0 需求进入
-
-### 触发条件
-
-出现新的业务目标、用户类型、部署形态、模块需求、关键技术约束或评审发现。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| 业务目标 | 业务负责人 | 用户希望完成什么业务活动。 |
-| 用户类型 | 业务负责人 | 强部门、弱部门、企业个人、平台运营方等。 |
-| 使用形态 | 业务负责人 / 架构负责人 | 本地 client、平台托管 service、混合部署、跨部门协作等。 |
-| 已知约束 | 架构负责人 / 模块负责人 | 数据不出域、成本统计、发布审批、鉴权体系、A2A 控制方式等。 |
-| 不确定问题 | 任意参与者 | 需要后续澄清的问题。 |
-
-### 流程
-
-1. 输入提供者提出原始需求。
-2. AI 整理成结构化 intake，明确“谁、在什么场景、为了什么目标、受什么约束”。
-3. 架构负责人判断是否进入 A2D。
-4. 输入不足时，AI 生成澄清问题；输入足够时，进入 A1。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 原始需求记录 | raw_input | 输入提供者 | raw_input | [task.md](../task.md) |
-| 结构化需求入口 | A2D Intake Record | AI agent 起草，业务负责人确认 | draft / accepted | `docs/architecture/l0/10-governance/a2d-intake/<id>.md` |
-| 进入判断 | A2D Entry Decision | 架构负责人 | accepted | 同一份 A2D Intake Record 的“进入判断”章节 |
-| 澄清问题 | Clarification Questions | AI agent 起草，输入提供者回答 | draft / accepted | 同一份 A2D Intake Record 的“澄清问题”章节 |
-
-### 退出标准
-
-- 需求能用一句话说明业务活动。
-- 用户类型和部署形态明确，或被列为澄清问题。
-- 已知约束和未决问题被显式记录。
-- 架构负责人确认该需求是否进入 A2D。
-
-## A1 架构准入判定
-
-### 触发条件
-
-有新项准备进入 Overview、Capability Map、Module Cards、Scenario、Contract、State Matrix 或模块设计包。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| A2D Intake Record | AI agent | A0 的结构化输出。 |
-| 现有架构文档 | AI agent | 当前 `docs/architecture/` 内容。 |
-| 权威来源 | AI agent | `CLAUDE.md`、`docs/adr/`、`docs/governance/*`、正式 contract。 |
-| 代码结构 | AI agent / 开发者 | root `pom.xml`、模块 metadata、已有实现。 |
-| 分类判断 | 架构负责人 | 对分类和边界的最终裁决。 |
-
-### 流程
-
-1. AI 对每个待处理项做准入分类。
-2. 分类集合固定为：
-
-```text
-Architecture Module
-Runtime Component
-Capability
-Contract
-State
-Build Artifact
-Packaging Artifact
-Implementation Constraint
-Open Issue
-Reject
-```
-
-3. 架构负责人确认分类。
-4. 只有 `Architecture Module` 和必要的 `Runtime Component` 可以进入 L0 Overview 的模块边界。
-5. `Build Artifact`、BoM、starter、dependency management、test fixture、demo、adapter scaffold 不得作为 L0 架构模块出现。
-6. AI 按分类把内容归档到对应位置。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 准入分类 | Admission Decision | AI agent 起草，架构负责人确认 | draft / accepted | `docs/architecture/l0/10-governance/admission-decisions/<id>.md` |
-| 分类结果汇总 | Admission Classification Table | AI agent | draft / accepted | 同一份 Admission Decision |
-| 冲突记录 | Conflict Record | AI agent 起草，架构负责人确认 | draft / accepted | [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
-| 文档准入规则更新 | Documentation Constraint Update | AI agent 起草，架构负责人确认 | draft / accepted | [architecture-documentation-constraints.md](architecture-documentation-constraints.md) |
-| 文档迁移结果 | Updated Target Documents | AI agent | draft / accepted | 被迁移项对应的目标文档，例如 Overview、Capability、Module、State、Contract 或 Scenario |
-
-### 退出标准
-
-- 每个待处理项都有分类。
-- 被写入 Overview 的内容只用于理解系统运行架构。
-- 构建、依赖、发布、fixture 类内容被下沉到实现约束、build governance 或附录。
-- 分类冲突进入 Conflict Record 或 Open Issue。
-
-## A2 核心场景建模
-
-### 触发条件
-
-需要验证模块划分是否合理、能力是否齐备、关键用户活动是否可被系统支撑。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| A2D Intake Record | AI agent | 需求背景和约束。 |
-| 用户画像 | 业务负责人 | 强部门、弱部门、企业个人、运营方等。 |
-| 部署形态 | 架构负责人 | 本地能力、平台托管、混合部署、跨部门 A2A。 |
-| 关键业务活动 | 业务负责人 | 用户真实完成的业务活动。 |
-| 已知技术机制 | 模块负责人 | SSE、Bus、A2A、数据引用、鉴权、成本统计等。 |
-
-### 流程
-
-1. 业务负责人描述真实业务活动。
-2. AI 生成 BA 场景草稿，优先描述用户目标、开发态体验、运行态体验和异常路径。
-3. 架构负责人确认场景是否足以串起多个架构模块。
-4. 模块负责人补充本模块在场景中的输入、输出、状态变化和观测要求。
-5. AI 抽取 technical sub-scenario，用于描述可测试机制。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 业务活动建模 | Business Activity Scenario | AI agent 起草，业务负责人和架构负责人确认 | draft / accepted | `docs/architecture/l0/06-scenarios/BA-xxx-*.md` |
-| 技术机制拆解 | Technical Scenario | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/06-scenarios/technical/Sx-*.md` |
-| 模块场景投影 | Module Scenario Projection | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/scenarios/<scenario-id>.md` |
-| 场景未决问题 | 场景开放问题 | AI agent 起草，负责人确认 | draft / accepted | 场景文件的“Open Issues”章节；跨场景问题同步到 [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
-
-### 退出标准
-
-- 场景是业务活动，不只是功能清单。
-- 场景能串起多个模块、状态、契约和观测要求。
-- 开发态和运行态关注点被显式说明。
-- 未决技术问题进入 Scenario Open Issue，而不是隐藏在正文里。
-
-## A3 能力拆解
-
-### 触发条件
-
-系统级场景已经成立，需要判断平台必须提供哪些能力，以及能力由哪些模块承接。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| Business Activity Scenario | AI agent | A2 产物。 |
-| Technical Scenario | AI agent / 模块负责人 | 机制级验证场景。 |
-| Overview 模块边界 | 架构负责人 | 当前 L0 模块边界。 |
-| 现有 Capability Map | AI agent | 已有能力定义。 |
-
-### 流程
-
-1. AI 从 BA 场景抽取能力候选。
-2. 架构负责人判断能力是否属于平台核心能力。
-3. 模块负责人确认本模块是否提供、消费或协同该能力。
-4. AI 建立场景、能力、模块、状态、契约之间的追踪关系。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 能力候选抽取 | Capability Candidate List | AI agent | draft | [capability-map.md](../01-capabilities/capability-map.md) 的候选或待确认章节 |
-| 能力准入裁决 | Capability Admission | 架构负责人 | accepted | [capability-map.md](../01-capabilities/capability-map.md) |
-| 能力细化 | Capability Detail | AI agent 起草，架构负责人确认 | draft / accepted | `docs/architecture/l0/01-capabilities/<capability-id>.md` |
-| 模块承接关系 | Capability Ownership Mapping | AI agent 起草，模块负责人确认 | draft / accepted | [capability-map.md](../01-capabilities/capability-map.md) |
-| 场景追踪关系 | Capability-to-Scenario Mapping | AI agent | draft / accepted | [capability-map.md](../01-capabilities/capability-map.md) |
-
-### 退出标准
-
-- 每个关键场景至少能追踪到一个能力。
-- 每个核心能力都有 owner 或明确 Open Issue。
-- 能力没有被误写成真实架构模块。
-- 能力和模块之间的 provided / consumed / collaborated 关系明确。
-
-## A4 模块责任承接
-
-### 触发条件
-
-能力已经确认，需要落到具体模块职责、非职责和协作边界。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| Capability Map | AI agent | 能力和 owner 候选。 |
-| Architecture Overview | 架构负责人 | L0 模块边界。 |
-| BA / Technical Scenario | AI agent | 场景驱动的模块参与关系。 |
-| ADR / 既有设计 | AI agent | 已确认的架构决策。 |
-
-### 流程
-
-1. AI 生成或更新模块责任卡。
-2. 模块负责人确认职责、非职责、输入、输出和下游依赖。
-3. 架构负责人裁决跨模块边界冲突。
-4. AI 更新模块责任卡、模块 README 和冲突清单。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 模块责任定义 | Module Responsibility Card | AI agent 起草，模块负责人确认 | draft / accepted | [module-responsibility-cards.md](../02-modules/module-responsibility-cards.md) |
-| 模块入口更新 | Module Pack README | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/README.md` |
-| 边界裁决 | Module Boundary Decision | 架构负责人 | accepted | 对应 Module Responsibility Card 的“边界裁决”章节 |
-| 边界冲突 | Module Boundary Conflict | AI agent 起草，架构负责人确认 | draft / accepted | [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
-
-### 退出标准
-
-- 每个模块都有职责、非职责、状态责任和协作边界。
-- 支撑框架、依赖、starter、BoM 不被写成模块。
-- 同类 service 是否互相调度、是否进程内闭环等关键边界明确。
-- 下游设计可以基于模块责任卡继续展开。
-
-## A5 状态与契约设计
-
-### 触发条件
-
-模块之间出现状态流转、跨模块调用、消息传递、回调、SSE 输出、Bus 控制指令或数据引用。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| Module Responsibility Card | AI agent | 模块职责和非职责。 |
-| Scenario | AI agent | 状态和契约发生的位置。 |
-| 状态候选 | AI agent / 模块负责人 | Task、Session、Agent、Tool Call、Approval、Trace 等。 |
-| 交互语义 | 模块负责人 | 调用方向、同步/异步、错误语义、重试 owner。 |
-
-### 流程
-
-1. AI 从场景和模块责任中抽取状态对象。
-2. 架构负责人确认状态 owner、writer、reader 和 forbidden writer。
-3. 模块负责人定义状态流转和交互语义。
-4. AI 生成 human-readable ICD、machine-readable contract draft 和状态矩阵更新。
-5. 评审者检查是否存在多 owner、隐式写入、契约缺口或状态漂移。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 状态候选抽取 | State Candidate List | AI agent | draft | [state-ownership-matrix.md](../03-state/state-ownership-matrix.md) 的候选或待确认章节 |
-| 状态归属裁决 | State Ownership Decision | 架构负责人 | accepted | [state-ownership-matrix.md](../03-state/state-ownership-matrix.md) |
-| 人类可读契约 | Human-readable ICD | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/05-contracts/human-readable/*.md` |
-| 机器可读契约草案 | Machine-readable Contract Draft | AI agent 起草，模块负责人确认 | draft | `docs/architecture/l0/05-contracts/machine-readable/*.yaml` |
-| 不变量更新 | Architecture Invariant Update | AI agent 起草，架构负责人确认 | draft / accepted | [architecture-invariants.md](../07-invariants/architecture-invariants.md) |
-| 契约或状态问题 | State / Contract Open Issue | AI agent 起草，负责人确认 | draft / accepted | 相关 ICD 或 [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
-
-### 退出标准
-
-- 每个核心状态只有一个 owner。
-- writer、reader、forbidden writer 明确。
-- 每个跨模块交互都有契约或 Open Issue。
-- 契约语义足以生成 mock、stub、contract test 或 harness 断言。
-
-## A6 模块详细设计
-
-### 触发条件
-
-某个模块需要进入并行开发，或已有 L1/L2 设计需要迁移到当前 A2D 文档体系。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| Module Responsibility Card | AI agent | A4 产物。 |
-| State Ownership / ICD | AI agent | A5 产物。 |
-| Scenario | AI agent | 系统级和模块投影场景。 |
-| 既有 L1/L2 设计 | 模块负责人 / AI agent | 需要迁移或对照的设计文档。 |
-| 代码结构 | 开发者 / AI agent | 当前实现约束。 |
-
-### 流程
-
-1. AI 读取既有设计和当前架构基线。
-2. AI 对旧设计逐项做准入判定：保留、修正、迁移、下沉、废弃或列为 Open Issue。
-3. 模块负责人确认模块内部逻辑、状态机、流程、开发视图和开发切片。
-4. 架构负责人检查是否越过 L0/L1 边界。
-5. AI 生成模块设计包和 4+1 视图。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 旧设计准入 | 已接受设计映射 | AI agent 起草，架构负责人和模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/accepted-design-map.md` |
-| 模块逻辑设计 | 模块逻辑设计 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/logical-design.md` |
-| 模块状态模型 | 状态模型 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/state-model.md` |
-| 模块流程设计 | 模块流程设计 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/process-design.md` |
-| 模块开发视图 | 模块开发视图 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/development-view.md` |
-| 模块 4+1 视图 | 4+1 视图 | AI agent 起草，架构负责人和模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/4plus1-view.md` |
-| 开发切片 | 开发切片 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/development-slices.md` |
-| 模块开放问题 | 模块开放问题 | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/open-issues.md` |
-| 模块入口 | Module Pack README | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/README.md` |
-
-### 退出标准
-
-- 模块负责人能根据设计包拆任务。
-- 开发者能理解输入、输出、状态机、异常和观测要求。
-- harness 生成器能从设计包生成测试建议。
-- 未决问题明确是否阻塞当前开发切片。
-
-## A7 Harness 设计与生成
-
-### 触发条件
-
-模块设计包已经形成，需要把架构约束转为可执行验证。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| 模块设计包 | AI agent | A6 产物。 |
-| ICD / Contract Draft | AI agent | A5 产物。 |
-| State Model | 模块负责人 | 状态流转和禁止路径。 |
-| Scenario Assertions | AI agent | BA 和 technical scenario 中的 assertions。 |
-| Failure Paths | 模块负责人 / 评审者 | 需要注入的异常和边界条件。 |
-
-### 流程
-
-1. AI 从场景、状态、契约生成 harness 候选。
-2. 模块负责人确认哪些属于 unit、contract、integration、scenario、regression。
-3. 评审者确认关键风险是否覆盖。
-4. 开发者实现测试、fixture、mock、stub 或 golden trace。
-5. AI 对照 Verification Matrix 检查覆盖缺口。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| harness 候选 | Harness Candidate List | AI agent | draft | 模块 `harness-design.md` 的候选章节 |
-| 模块 harness 设计 | Module Harness Design | AI agent 起草，模块负责人确认 | draft / accepted | `docs/architecture/l0/02-modules/<module>/harness-design.md` |
-| 系统级 harness 策略 | System Harness Spec | AI agent 起草，架构负责人确认 | draft / accepted | `docs/architecture/l0/08-harness/*.md` |
-| 验证矩阵更新 | Verification Matrix Row | AI agent 起草，评审者确认 | draft / accepted | [verification-matrix.md](../09-verification/verification-matrix.md) |
-| 测试实现 | Test / Fixture / Golden Trace | 开发者 | reviewed / accepted | 对应模块的 `src/test`、集成测试目录或 PR |
-| 覆盖缺口 | Harness Coverage Finding | 评审者 / AI agent | draft / accepted | [verification-matrix.md](../09-verification/verification-matrix.md) 或模块 `open-issues.md` |
-
-### 退出标准
-
-- 核心状态流转有测试或明确未覆盖原因。
-- 跨模块契约有 contract test 或 mock/stub 计划。
-- 关键失败路径有 failure injection。
-- 每个 harness 项能追溯到场景、状态、契约或不变量。
-
-## A8 实现任务拆解
-
-### 触发条件
-
-模块设计包和 harness 设计已经足以支撑开发者开工。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| 开发切片 | 模块负责人 / AI agent | 可并行开发的切片。 |
-| Harness Design | AI agent | 每个切片对应的验证方式。 |
-| 开放问题 | 模块负责人 / 架构负责人 | 阻塞或非阻塞问题。 |
-| 当前代码结构 | 开发者 / AI agent | 实现落点和约束。 |
-
-### 流程
-
-1. AI 根据开发切片生成任务候选。
-2. 模块负责人确认任务边界、输入输出和 DoD。
-3. 开发负责人安排优先级和负责人。
-4. 开发者实现代码和测试。
-5. AI 或评审者检查实现是否偏离设计包。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 任务候选 | 实现任务草案 | AI agent | draft | issue 系统、PR 描述草稿，或模块 `development-slices.md` 的任务章节 |
-| 任务确认 | 已接受实现任务 | 模块负责人 | accepted | issue 系统或 PR 描述 |
-| 排期分配 | Task Owner / Priority | 开发负责人 | accepted | issue 系统 |
-| 实现变更 | 代码变更 | 开发者 | reviewed / accepted | 代码仓库和 PR |
-| 测试变更 | 测试变更 | 开发者 | reviewed / accepted | 对应模块测试目录和 PR |
-| 验收证据 | 实现证据 | 开发者 / AI agent | reviewed / accepted | PR 描述、CI 结果、[verification-matrix.md](../09-verification/verification-matrix.md) |
-
-### 退出标准
-
-- 每个任务都有输入、输出、验收标准和 owner。
-- 每个任务能追溯到场景、能力、状态、契约或 harness。
-- 不产生脱离架构设计的孤儿实现。
-
-## A9 集成验证与架构评审
-
-### 触发条件
-
-PR 准备合并、多个模块发生协作变更、契约或状态发生变化、harness 结果需要纳入评审。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| PR diff | 开发者 / AI agent | 实际变更。 |
-| 测试结果 | 开发者 / CI | verification evidence。 |
-| 设计包 | AI agent | 被实现引用的设计输入。 |
-| 契约和状态矩阵 | AI agent | 架构约束。 |
-| 开放问题 | 模块负责人 | 是否仍有阻塞。 |
-
-### 流程
-
-1. AI 汇总 PR、测试结果、契约变更和设计引用。
-2. 评审者检查状态 owner、契约、调用方向、观测、成本、权限和错误语义。
-3. 架构负责人裁决跨模块冲突。
-4. AI 生成 verification finding 和后续修正文档。
-5. 如果实现改变了设计事实，必须回写 A2D 文档或进入正式 ADR / CR。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 验证证据汇总 | Verification Summary | AI agent | draft / reviewed | PR 描述或 [verification-matrix.md](../09-verification/verification-matrix.md) |
-| 架构评审发现 | Architecture Review Finding | 评审者 | reviewed / accepted | PR review comment；需要沉淀时同步到 [architecture-review-process.md](architecture-review-process.md) 的 finding 格式或模块 `open-issues.md` |
-| 冲突裁决 | Integration Decision | 架构负责人 | accepted | PR 描述、相关设计文档或 [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
-| 验证矩阵更新 | Verification Matrix Row Update | AI agent 起草，评审者确认 | draft / accepted | [verification-matrix.md](../09-verification/verification-matrix.md) |
-| 文档回写 | Updated A2D Documents | AI agent / 模块负责人 | draft / accepted | 被实现改变的对应 A2D 文档 |
-| 后续问题 | Follow-up Issue | 模块负责人 / 架构负责人 | accepted | issue 系统或模块 `open-issues.md` |
-
-### 退出标准
-
-- 设计和实现没有未解释的漂移。
-- P0 / P1 finding 已关闭或降级并说明理由。
-- 契约、状态、场景、harness 的追踪关系仍然成立。
-- 需要回写的文档已经更新或明确创建后续任务。
-
-## A10 版本归档
-
-### 触发条件
-
-一个设计包、模块切片、跨模块契约或阶段性架构版本准备作为后续工作的基线。
-
-### 输入
-
-| 输入 | 提供者 | 说明 |
-|---|---|---|
-| 已接受文档 | AI agent | 本轮已接受产物。 |
-| PR / commit | 开发者 / AI agent | 变更记录。 |
-| 开放问题 | 模块负责人 / 架构负责人 | 未决问题和影响范围。 |
-| ADR / CR | 架构负责人 | 正式决策或变更请求。 |
-
-### 流程
-
-1. AI 汇总本轮变更、接受项、废弃项和未决项。
-2. 架构负责人确认哪些内容进入当前基线。
-3. AI 标记已替代或已接受，补充反向链接。
-4. PR 合并后形成版本记录。
-
-### 产出物与归档
-
-| 环节 | 产出物 | 责任人 | 状态 | 归档位置 |
-|---|---|---|---|---|
-| 版本汇总 | 架构基线说明 | AI agent 起草，架构负责人确认 | draft / accepted | `docs/architecture/l0/10-governance/baselines/<version>.md` |
-| 基线裁决 | 基线裁决 | 架构负责人 | accepted | 同一份架构基线说明 |
-| 当前入口更新 | README Baseline Link | AI agent 起草，架构负责人确认 | draft / accepted | [README](../README.md) |
-| 废弃关系记录 | 替代关系记录 | AI agent 起草，架构负责人确认 | accepted | 被替代文档的 frontmatter 或正文维护规则；必要时同步到架构基线说明 |
-| 未决问题结转 | 结转开放问题 | AI agent 起草，负责人确认 | accepted | 架构基线说明；模块问题同步到模块 `open-issues.md` |
-
-### 退出标准
-
-- 当前 L0/L1/L2 哪些内容有效清楚。
-- 哪些内容只是 draft、哪些已被替代清楚。
-- 后续 AI 和开发者不会把旧文档误读成当前基线。
-
-## 最小 A2D 工作包
-
-一个版本进入 AI 自动实现前，至少需要形成以下工作包：
-
-| 工件 | 是否必需 | 归档位置 |
-|---|---|---|
-| 版本意图 | 必需 | `docs/architecture/l0/10-governance/version-intents/<version>.md` |
-| 版本架构边界 | 必需 | `docs/architecture/l0/10-governance/architecture-envelopes/<version>.md` |
-| 架构审核包 | H2 前必需 | `docs/architecture/l0/10-governance/review-packets/<version>.md` |
-| 交付视图 | 进入实现前必需 | `docs/architecture/l0/10-governance/delivery-projections/<version>.md` |
-| A2D Intake Record / Admission Decision | 批量或逐项必需 | `docs/architecture/l0/10-governance/a2d-intake/<id>.md` / `docs/architecture/l0/10-governance/admission-decisions/<id>.md` |
-| Business Activity Scenario 或 Module Scenario Projection | 涉及新场景或场景变化时必需 | `docs/architecture/l0/06-scenarios/` 或 `docs/architecture/l0/02-modules/<module>/scenarios/` |
-| Capability Mapping | 涉及能力变化时必需 | [capability-map.md](../01-capabilities/capability-map.md) |
-| Module Responsibility Card | 涉及模块职责变化时必需 | [module-responsibility-cards.md](../02-modules/module-responsibility-cards.md) |
-| State Ownership Decision | 如涉及状态则必需 | [state-ownership-matrix.md](../03-state/state-ownership-matrix.md) |
-| Human-readable ICD / Machine-readable Contract Draft | 如涉及跨模块交互则必需 | `docs/architecture/l0/05-contracts/` |
-| 模块设计包 | 模块并行开发必需 | `docs/architecture/l0/02-modules/<module>/` |
-| Harness Design | 进入实现前必需 | `docs/architecture/l0/08-harness/` 或 `docs/architecture/l0/02-modules/<module>/harness-design.md` |
-| Verification Matrix Row | 必需 | [verification-matrix.md](../09-verification/verification-matrix.md) |
-
-## A2D Ready / Done 判定
-
-### 版本级 Ready / Done
-
-| 阶段 | Ready | Done |
-|---|---|---|
-| 进入 AI 批量分析 | 版本意图已说明目标、范围、非目标、约束和发布门槛。 | 需求已归一化，架构影响矩阵和升级候选已形成。 |
-| 进入 AI 批量建模 | H1 已确认版本架构边界。 | A2D 产物已按影响面批量生成或更新，开放问题有归宿。 |
-| 进入人类架构审核 | 4+1 评审视图和交付视图已生成。 | H2 已确认架构包，例外项已裁决或进入后续位置。 |
-| 进入自动实现 | 版本架构边界、交付视图、DoD、harness 计划和验证矩阵增量齐备。 | 代码变更、测试变更、实现证据完成。 |
-| 进入发布例外审核 | 集成验证完成，漂移检查和风险说明已形成。 | H3 已确认剩余例外、发布风险和归档条件。 |
-| 进入归档 | 无阻塞 finding，或阻塞项已明确移出本版本。 | 架构基线说明、替代关系记录、结转开放问题清楚。 |
-
-### 内部活动 Ready / Done
-
-| 阶段 | Ready | Done |
-|---|---|---|
-| 进入场景建模 | A2D Intake Record 已说明用户、目标、约束。 | Business Activity Scenario 被业务和架构负责人确认。 |
-| 进入能力拆解 | Business Activity Scenario 能串起模块。 | Capability Mapping 有 owner 或 Open Issue。 |
-| 进入模块设计 | 模块责任卡已确认。 | 模块设计包可支撑任务拆解。 |
-| 进入 harness | State Ownership、ICD、Scenario Assertions 明确。 | Harness Design 能覆盖核心状态、契约和失败路径。 |
-| 进入实现 | 模块设计包、harness 设计、DoD 齐备。 | 代码变更、测试变更、实现证据完成。 |
-| 进入归档 | 集成验证完成且无阻塞 finding。 | 架构基线说明、替代关系记录、结转开放问题清楚。 |
-
-## 视图验收口径
-
-每个准备进入已接受状态的关键设计项，必须回答以下问题：
-
-| 检查项 | 交付视图 | 4+1 评审视图 |
-|---|---|---|
-| 事实来源 | 是否能追溯到场景、能力、模块责任卡、状态归属矩阵、ICD、不变量或 harness。 | 是否能追溯到同一批 A2D 已接受产物，而不是另起一套描述。 |
-| 可交付性 | 是否能生成开发切片、实现任务草案、DoD、测试或验证证据。 | 是否说明该设计对逻辑、开发、进程、物理、场景至少一个视图的影响。 |
-| 可裁决性 | 是否明确 owner、输入、输出、依赖、阻塞项和验收标准。 | 是否明确变更级别、影响面、开放问题、冲突和需要人类裁决的问题。 |
-| 可验证性 | 是否进入验证矩阵，或说明为什么当前不可验证。 | 是否让评审者能判断架构一致性、风险覆盖和后续基线条件。 |
-
-## 人类与 AI 的协作边界
-
-| 事项 | AI 可以做 | 必须由人类确认 |
-|---|---|---|
-| 版本意图 | 整理、归纳、去重、发现缺口和冲突。 | 版本目标、范围、非目标、风险预算和发布门槛是否正确。 |
-| 版本架构边界 | 生成边界草案、影响矩阵、变更级别初判和升级条件。 | H1 是否允许 AI 在该边界内自动推进。 |
-| A2D 内部产物 | 批量生成或更新场景、能力、模块卡、状态矩阵、ICD、不变量、harness 和验证矩阵。 | 只有越过版本架构边界或触发升级条件时才需要裁决。 |
-| 4+1 评审视图 | 汇总逻辑、开发、进程、物理、场景视图和决策摘要。 | H2 是否接受本版本架构包。 |
-| 交付视图 | 生成开发切片、实现任务、DoD、harness 计划和验证矩阵增量。 | H2 是否允许进入自动实现。 |
-| 自动实现 | 在已确认边界内修改代码、测试、配置和文档，并持续做漂移检查。 | 触发升级条件、验证无法闭环或发布风险超预算时的例外裁决。 |
-| 版本归档 | 汇总基线、替代关系、结转开放问题和发布证据。 | H3 是否接受剩余风险，以及哪些内容进入基线。 |
-
-## 反模式
-
-- 产出物表和归档位置表主语不同，需要读者自己推断映射关系。
-- 先建目录，再倒推应该写什么内容。
-- 把原始讨论直接当成已接受设计。
-- 把每个需求都当成一次完整人工审批流，而不是在版本架构边界内批量推进。
-- H1 / H2 通过后，仍对边界内低风险事项逐条要求人工确认。
-- AI 在触发升级条件后继续自动实现。
-- 只写模块内部细节，不说明它来自哪个场景、能力和契约。
-- 把构建制品、starter、BoM、demo、fixture 写成 L0 架构模块。
-- AI 直接根据模糊需求生成 production code，而没有经过 A2D Ready 判定。
-- 评审发现只留在聊天或 PR 评论里，不回写到文档、Open Issue 或 Verification Matrix。
+| 产物类型 | 默认归档位置 |
+|---|---|
+| 版本意图 | `10-governance/version-intents/<version>.md` |
+| 版本架构边界 | `10-governance/architecture-envelopes/<version>.md` |
+| 架构审核包 | `10-governance/review-packets/<version>.md` |
+| 交付视图 | `10-governance/delivery-projections/<version>.md` |
+| A2D Intake Record | `10-governance/a2d-intake/<id>.md` |
+| Admission Decision | `10-governance/admission-decisions/<id>.md` |
+| 基线说明 | `10-governance/baselines/<version>.md` |
+| 原始需求记录 | [task.md](../task.md) |
+| Conflict / Open Issue | [constraint-and-design-inventory.md](../constraint-and-design-inventory.md) |
+| BA 场景 | `02-scenarios/BA-xxx-*.md` |
+| Technical 场景 | `02-scenarios/technical/Sx-*.md` |
+| 能力图 | [capability-map.md](../01-capabilities/capability-map.md) |
+| 模块责任卡 | [module-responsibility-cards.md](../04-modules/module-responsibility-cards.md) |
+| 模块设计包 | `04-modules/<module>/` |
+| 状态归属矩阵 | [state-ownership-matrix.md](../06-state/state-ownership-matrix.md) |
+| Human-readable ICD | `05-contracts/human-readable/*.md` |
+| Machine-readable 草案 | `05-contracts/machine-readable/*.yaml` |
+| Harness 设计 | `08-harness/` 或 `04-modules/<module>/harness-design.md` |
+| 验证矩阵 | [verification-matrix.md](../09-verification/verification-matrix.md) |
+
+## 相关文件
+
+| 文件 | 内容 |
+|---|---|
+| [a2d-human-checkpoints.md](a2d-human-checkpoints.md) | 人类视角的检查点流程 |
+| [a2d-roles.md](a2d-roles.md) | 角色与协作边界 |
+| [a2d-views.md](a2d-views.md) | 双视图模型、验收口径和最小工作包 |
+| [a2d-phases/](a2d-phases/) | AI 阶段契约（按阶段加载） |
+| [change-governance.md](change-governance.md) | 变更分级规则 |
+| [architecture-review-process.md](architecture-review-process.md) | 评审流程和 Finding 格式 |
+| [document-artifact-catalog.md](document-artifact-catalog.md) | 目录职责索引 |
+
+## 维护规则
+
+- 阶段契约变更时，更新本文的阶段索引
+- 新增产物类型时，更新归档位置约定
+- 本文保持精简；详细内容放进阶段契约或相关文件

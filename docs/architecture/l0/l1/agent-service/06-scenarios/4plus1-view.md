@@ -79,11 +79,11 @@ flowchart TB
 
 | 结论 | 说明 | 详细位置 |
 |---|---|---|
-| `agent-service` 是 Task lifecycle owner。 | 所有服务端执行状态写入都通过 `agent-service` controlled transition path。 | [logical-design.md](logical-design.md), [state-model.md](state-model.md) |
-| `agent-service` 与 `agent-execution-engine` 同进程组合。 | service 管入口和状态，engine 管执行 SPI；engine 不作为默认远程服务。 | [logical-design.md](logical-design.md), [process-design.md](process-design.md) |
-| Gateway 不是 service 内部层。 | Gateway 是微服务入口能力，只代理 `agent-service`。 | [logical-design.md](logical-design.md), [development-view.md](development-view.md) |
-| Bus 不是 payload / token stream 通道。 | Bus 只传 S2C、callback、A2A control 和 data reference envelope。 | [logical-design.md](logical-design.md), [process-design.md](process-design.md) |
-| SSE 归 `agent-service` 对外实时输出。 | SSE stream event 不写 Task State。 | [process-design.md](process-design.md), [harness-design.md](harness-design.md) |
+| `agent-service` 是 Task lifecycle owner。 | 所有服务端执行状态写入都通过 `agent-service` controlled transition path。 | [logical-design.md](../02-components/logical-design.md), [state-model.md](../03-state/state-model.md) |
+| `agent-service` 与 `agent-execution-engine` 同进程组合。 | service 管入口和状态，engine 管执行 SPI；engine 不作为默认远程服务。 | [logical-design.md](../02-components/logical-design.md), [process-design.md](process-design.md) |
+| Gateway 不是 service 内部层。 | Gateway 是微服务入口能力，只代理 `agent-service`。 | [logical-design.md](../02-components/logical-design.md), [development-view.md](../02-components/development-view.md) |
+| Bus 不是 payload / token stream 通道。 | Bus 只传 S2C、callback、A2A control 和 data reference envelope。 | [logical-design.md](../02-components/logical-design.md), [process-design.md](process-design.md) |
+| SSE 归 `agent-service` 对外实时输出。 | SSE stream event 不写 Task State。 | [process-design.md](process-design.md), [harness-design.md](../08-harness/harness-design.md) |
 
 ## 2. Process View
 
@@ -184,11 +184,11 @@ agent-service/src/main/java/com/huawei/ascend/service
 
 | Rule | 约束 | 详细位置 |
 |---|---|---|
-| DEV-R-001 | `runtime.*` 不得依赖 `platform.*` ThreadLocal tenant。 | [development-view.md](development-view.md) |
-| DEV-R-002 | engine adapter 不得直接写 Task State。 | [development-view.md](development-view.md) |
-| DEV-R-003 | `runtime.runs` 只作历史兼容实现区。 | [development-view.md](development-view.md), [state-model.md](state-model.md) |
-| DEV-R-004 | `runtime.s2c` 不承载大型 payload 或逐 token stream。 | [development-view.md](development-view.md) |
-| DEV-R-006 | 新增子包必须归入 AS-L1..AS-L6 或 cross-cutting。 | [development-view.md](development-view.md) |
+| DEV-R-001 | `runtime.*` 不得依赖 `platform.*` ThreadLocal tenant。 | [development-view.md](../02-components/development-view.md) |
+| DEV-R-002 | engine adapter 不得直接写 Task State。 | [development-view.md](../02-components/development-view.md) |
+| DEV-R-003 | `runtime.runs` 只作历史兼容实现区。 | [development-view.md](../02-components/development-view.md), [state-model.md](../03-state/state-model.md) |
+| DEV-R-004 | `runtime.s2c` 不承载大型 payload 或逐 token stream。 | [development-view.md](../02-components/development-view.md) |
+| DEV-R-006 | 新增子包必须归入 AS-L1..AS-L6 或 cross-cutting。 | [development-view.md](../02-components/development-view.md) |
 
 ## 4. Physical View
 
@@ -261,31 +261,31 @@ flowchart LR
 
 | Harness Layer | 覆盖 | 详细位置 |
 |---|---|---|
-| H1 Entry Harness | HTTP 对外入口、tenant、auth reference、idempotency、trace。 | [harness-design.md](harness-design.md) |
-| H2 State Harness | Task 状态机、controlled transition、cancel race。 | [harness-design.md](harness-design.md), [state-model.md](state-model.md) |
-| H3 Engine Harness | 同进程 engine dispatch。 | [harness-design.md](harness-design.md) |
-| H4 Placement Harness | context / tool / memory / retriever / approval UI placement。 | [harness-design.md](harness-design.md) |
-| H5 Resume Harness | S2C、approval、business service callback、timer、child Task resume。 | [harness-design.md](harness-design.md) |
-| H6 Task Tree Harness | same-service child Task、join、partial failure。 | [harness-design.md](harness-design.md) |
-| H7 Federation Harness | cross-boundary A2A control、data reference、timeout、duplicate completion。 | [harness-design.md](harness-design.md) |
-| H8 SSE Harness | SSE event、terminal event、error event、trace correlation。 | [harness-design.md](harness-design.md) |
-| H9 Evidence Harness | timeline、decision evidence、metrics、audit、cost attribution。 | [harness-design.md](harness-design.md) |
-| H10 Replay Harness | replay-safe fixture export、脱敏、租户隔离。 | [harness-design.md](harness-design.md) |
+| H1 Entry Harness | HTTP 对外入口、tenant、auth reference、idempotency、trace。 | [harness-design.md](../08-harness/harness-design.md) |
+| H2 State Harness | Task 状态机、controlled transition、cancel race。 | [harness-design.md](../08-harness/harness-design.md), [state-model.md](../03-state/state-model.md) |
+| H3 Engine Harness | 同进程 engine dispatch。 | [harness-design.md](../08-harness/harness-design.md) |
+| H4 Placement Harness | context / tool / memory / retriever / approval UI placement。 | [harness-design.md](../08-harness/harness-design.md) |
+| H5 Resume Harness | S2C、approval、business service callback、timer、child Task resume。 | [harness-design.md](../08-harness/harness-design.md) |
+| H6 Task Tree Harness | same-service child Task、join、partial failure。 | [harness-design.md](../08-harness/harness-design.md) |
+| H7 Federation Harness | cross-boundary A2A control、data reference、timeout、duplicate completion。 | [harness-design.md](../08-harness/harness-design.md) |
+| H8 SSE Harness | SSE event、terminal event、error event、trace correlation。 | [harness-design.md](../08-harness/harness-design.md) |
+| H9 Evidence Harness | timeline、decision evidence、metrics、audit、cost attribution。 | [harness-design.md](../08-harness/harness-design.md) |
+| H10 Replay Harness | replay-safe fixture export、脱敏、租户隔离。 | [harness-design.md](../08-harness/harness-design.md) |
 
 ## 实现者阅读路径
 
 | 如果你要做 | 先读 | 再读 | 必须验证 |
 |---|---|---|---|
-| Task 创建 / 幂等 | [state-model.md](state-model.md), [process-design.md](process-design.md#p1-标准业务请求进入并创建-task) | [development-slices.md](development-slices.md#as-slice-002-task-creation--idempotency) | AS-H-001, AS-H-002 |
-| Task 状态机 / cancel race | [state-model.md](state-model.md#task-状态机) | [process-design.md](process-design.md#p7-cancel--terminal-竞争处理) | AS-H-003, AS-H-004, AS-H-005 |
-| engine dispatch | [logical-design.md](logical-design.md), [process-design.md](process-design.md#p2-同进程执行-agent-step) | [development-view.md](development-view.md) | AS-H-006 |
-| 本地能力 handoff | [process-design.md](process-design.md#p3-suspend--resume) | [development-slices.md](development-slices.md#as-slice-005-context--tool-placement-coordinator) | AS-H-007, AS-H-008 |
-| 同 service 多 Agent | [process-design.md](process-design.md#p4-同一-service-内多-agent-child-task--join) | [state-model.md](state-model.md#核心实体关系) | AS-H-009 |
-| 跨边界 A2A | [process-design.md](process-design.md#p5-跨边界-a2a-控制指令和-data-reference) | [open-issues.md](open-issues.md) | AS-H-010, AS-H-011 |
-| SSE 实时输出 | [process-design.md](process-design.md#p6-sse-实时输出) | [development-slices.md](development-slices.md#as-slice-009-service-sse-stream) | AS-H-012 |
-| 开发者 evidence query | [harness-design.md](harness-design.md#golden-trace-最小事件) | [open-issues.md](open-issues.md) | AS-H-013 |
-| 运行态指标 / 成本 | [development-slices.md](development-slices.md#as-slice-011-runtime-metrics--audit--cost-attribution) | [harness-design.md](harness-design.md) | AS-H-014 |
-| replay-safe fixture | [development-slices.md](development-slices.md#as-slice-012-replay-safe-fixture-export) | [open-issues.md](open-issues.md) | AS-H-015 |
+| Task 创建 / 幂等 | [state-model.md](../03-state/state-model.md), [process-design.md](process-design.md#p1-标准业务请求进入并创建-task) | [development-slices.md](../08-harness/development-slices.md#as-slice-002-task-creation--idempotency) | AS-H-001, AS-H-002 |
+| Task 状态机 / cancel race | [state-model.md](../03-state/state-model.md#task-状态机) | [process-design.md](process-design.md#p7-cancel--terminal-竞争处理) | AS-H-003, AS-H-004, AS-H-005 |
+| engine dispatch | [logical-design.md](../02-components/logical-design.md), [process-design.md](process-design.md#p2-同进程执行-agent-step) | [development-view.md](../02-components/development-view.md) | AS-H-006 |
+| 本地能力 handoff | [process-design.md](process-design.md#p3-suspend--resume) | [development-slices.md](../08-harness/development-slices.md#as-slice-005-context--tool-placement-coordinator) | AS-H-007, AS-H-008 |
+| 同 service 多 Agent | [process-design.md](process-design.md#p4-同一-service-内多-agent-child-task--join) | [state-model.md](../03-state/state-model.md#核心实体关系) | AS-H-009 |
+| 跨边界 A2A | [process-design.md](process-design.md#p5-跨边界-a2a-控制指令和-data-reference) | [open-issues.md](../10-governance/open-issues.md) | AS-H-010, AS-H-011 |
+| SSE 实时输出 | [process-design.md](process-design.md#p6-sse-实时输出) | [development-slices.md](../08-harness/development-slices.md#as-slice-009-service-sse-stream) | AS-H-012 |
+| 开发者 evidence query | [harness-design.md](../08-harness/harness-design.md#golden-trace-最小事件) | [open-issues.md](../10-governance/open-issues.md) | AS-H-013 |
+| 运行态指标 / 成本 | [development-slices.md](../08-harness/development-slices.md#as-slice-011-runtime-metrics--audit--cost-attribution) | [harness-design.md](../08-harness/harness-design.md) | AS-H-014 |
+| replay-safe fixture | [development-slices.md](../08-harness/development-slices.md#as-slice-012-replay-safe-fixture-export) | [open-issues.md](../10-governance/open-issues.md) | AS-H-015 |
 
 ## 当前开放问题对 4+1 的影响
 

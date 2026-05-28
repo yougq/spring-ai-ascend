@@ -784,7 +784,7 @@ docs/architecture/
   01-capabilities/
     capability-map.md
 
-  02-modules/
+  04-modules/
     gateway.md
     workflow-orchestrator.md
     agent-service.md
@@ -794,12 +794,12 @@ docs/architecture/
     observability.md
     runtime-governance.md
 
-  03-state/
+  06-state/
     state-ownership-matrix.md
     run-state-machine.md
     step-state-machine.md
 
-  04-adrs/
+  03-adrs/
     ADR-001-workflow-owns-run-lifecycle.md
     ADR-002-agent-service-executes-steps.md
     ADR-003-tool-gateway-owns-tool-governance.md
@@ -816,7 +816,7 @@ docs/architecture/
       gateway-workflow.yaml
       agent-service-tool-gateway.yaml
 
-  06-scenarios/
+  02-scenarios/
     S1-create-run.md
     S2-execute-agent-step.md
     S3-build-context-package.md

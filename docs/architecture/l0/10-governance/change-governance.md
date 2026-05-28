@@ -33,8 +33,8 @@ status: draft
 
 如果 Task 状态机发生变化，至少需要：
 
-- 更新 [State Ownership Matrix](../03-state/state-ownership-matrix.md)。
-- 更新 [ADR-001](../04-adrs/ADR-001-run-lifecycle-ownership.md) 或新增正式 ADR。
+- 更新 [State Ownership Matrix](../06-state/state-ownership-matrix.md)。
+- 更新 [ADR-001](../03-adrs/ADR-001-run-lifecycle-ownership.md) 或新增正式 ADR。
 - 更新 Gateway ↔ Workflow 和 Workflow ↔ Agent Service ICD。
 - 更新 Workflow Harness Spec。
 - 更新相关 Scenario Spec。

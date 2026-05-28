@@ -41,7 +41,7 @@ file that also holds Process + Physical + Development).
 | [`process.md`](process.md) | Process | rc55 W4 | `level: L1, view: process` |
 | [`physical.md`](physical.md) | Physical | rc55 W4 | `level: L1, view: physical` |
 | [`development.md`](development.md) | Development | rc55 W5 | `level: L1, view: development` |
-| [`spi-appendix.md`](spi-appendix.md) | Development (appendix) | rc55 W5 | `level: L1, view: development` |
+| [`spi-appendix.md`](05-contracts/spi-appendix.md) | Development (appendix) | rc55 W5 | `level: L1, view: development` |
 
 Each file declares per-view frontmatter per Rule G-1.a; no file declares
 `covers_views:` plural — that field is reserved for this index file only.
@@ -72,7 +72,31 @@ authored:
 | W5 | ⏳ pending | development.md + spi-appendix.md content authoring |
 | W6 | ⏳ pending | rc53 review file demotion note + final family closure + release note |
 
-## 4. Cross-links
+## 4. 同构目录结构
+
+本目录采用和 L0 同构的骨架，按产物类型组织。4+1 视图文件保留在根目录作为横切引用，指向对应子目录的详细内容。
+
+| 目录 / 文件 | 内容 | 状态 |
+|---|---|---|
+| `scenarios.md` | 4+1 场景视图（引用 `06-scenarios/`） | skeleton |
+| `logical.md` | 4+1 逻辑视图（引用 `02-components/`、`03-state/`） | skeleton |
+| `process.md` | 4+1 进程视图（引用 `06-scenarios/`、`05-contracts/`） | skeleton |
+| `physical.md` | 4+1 物理视图 | skeleton |
+| `development.md` | 4+1 开发视图（引用 `02-components/`、`08-harness/`） | skeleton |
+| `01-capabilities/` | 服务能力分解 | 空 |
+| `02-components/` | 组件责任、逻辑设计、开发视图 | [`logical-design.md`](02-components/logical-design.md)、[`development-view.md`](02-components/development-view.md) |
+| `03-state/` | 服务内状态归属 | [`state-model.md`](03-state/state-model.md) |
+| `04-decisions/` | 设计决策记录 | [`accepted-design-map.md`](04-decisions/accepted-design-map.md) |
+| `05-contracts/` | 入站 / 出站 / 内部契约 | [`spi-appendix.md`](05-contracts/spi-appendix.md) |
+| `06-scenarios/` | 服务级场景和技术子场景 | [`process-design.md`](06-scenarios/process-design.md)、[`4plus1-view.md`](06-scenarios/4plus1-view.md) |
+| `07-invariants/` | 服务级不变量 | 空 |
+| `08-harness/` | Harness 设计和开发切片 | [`harness-design.md`](08-harness/harness-design.md)、[`development-slices.md`](08-harness/development-slices.md) |
+| `09-verification/` | 服务级验证矩阵 | 空 |
+| `10-governance/` | 设计授权书、开放问题 | [`open-issues.md`](10-governance/open-issues.md) |
+
+L1 可以细化 L0，但不得改写 L0。每个子目录的内容必须能追溯到 L0 的服务边界、状态归属和跨服务契约。
+
+## 5. Cross-links
 
 - L0: root [`ARCHITECTURE.md`](../../../../../ARCHITECTURE.md) — platform-level 4+1
 - L1 module root: [`agent-service/ARCHITECTURE.md`](../../../../../agent-service/ARCHITECTURE.md) — shipped-state grounding + dependencies + wave plan

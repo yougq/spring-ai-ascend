@@ -482,7 +482,7 @@ classDiagram
   RLS policy, three-track bus binding, sandbox boundary.
 - Development View: [`development.md`](development.md) — package tree,
   layer↔package matrix per ADR-0144, 5 L2 Boundary Contracts.
-- SPI Appendix: [`spi-appendix.md`](spi-appendix.md) — 9 active SPI
+- SPI Appendix: [`spi-appendix.md`](05-contracts/spi-appendix.md) — 9 active SPI
   interfaces with 4-way parity (Rule G-1.1.b).
 - Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../../../agent-service/ARCHITECTURE.md)
   §1-§9.
