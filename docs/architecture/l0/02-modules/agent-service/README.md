@@ -8,7 +8,7 @@ status: draft
 
 ## 目的
 
-把 `agent-service` 从 L0 模块责任卡推进到可并行开发的 L1 模块设计包。本文档包不是复制 `docs/L1/agent-service/*`，而是按当前架构口径对旧设计做准入判定、改写和下沉，使模块负责人、AI agent、harness 生成器和评审者可以围绕同一套边界启动开发。
+把 `agent-service` 从 L0 模块责任卡推进到可并行开发的交付设计包。本文档包不是 L1 4+1 架构权威来源；正式 L1 服务架构位于 `docs/architecture/l0/l1/agent-service/`。本包只负责把已确认的 L0 / L1 架构约束转成开发切片、harness 和实现说明。
 
 ## 适用读者
 
@@ -16,7 +16,7 @@ status: draft
 
 ## 维护规则
 
-- 不修改 `docs/L1/**` 原始设计文档；旧文档只作为输入来源。
+- 不改写 `docs/architecture/l0/l1/**` 的 L1 架构事实；本包只能引用、细化和下沉。
 - 进入本文档包的内容必须先经过 [accepted-design-map.md](accepted-design-map.md) 准入判定。
 - `Task` 是服务端 canonical 状态；历史 `Run` / `RunRepository` / `RunStateMachine` 只能作为实现兼容名或迁移备注。
 - `agent-service` 与 `agent-execution-engine` 的目标运行形态是同进程组合；不得把 engine 写成默认远程服务。
@@ -41,10 +41,10 @@ status: draft
 
 | 类型 | 文件 |
 |---|---|
-| 上游 L0 / L1 约束 | `docs/architecture/00-overview/architecture-overview.md`, `docs/architecture/02-modules/module-responsibility-cards.md`, `docs/architecture/03-state/state-ownership-matrix.md` |
-| 场景依据 | `docs/architecture/06-scenarios/BA-001-agent-handles-business-request.md`, `BA-002`, `BA-003`, `technical/S1`, `S2`, `S5`, `S6` |
-| Harness 依据 | `docs/architecture/08-harness/agent-service-harness-spec.md` |
-| 旧设计输入 | `docs/L1/agent-service/logical.md`, `process.md`, `physical.md`, `development.md`, `scenarios.md`, `spi-appendix.md` |
+| 上游 L0 / L1 约束 | `docs/architecture/l0/00-overview/architecture-overview.md`, `docs/architecture/l0/02-modules/module-responsibility-cards.md`, `docs/architecture/l0/03-state/state-ownership-matrix.md` |
+| 场景依据 | `docs/architecture/l0/06-scenarios/BA-001-agent-handles-business-request.md`, `BA-002`, `BA-003`, `technical/S1`, `S2`, `S5`, `S6` |
+| Harness 依据 | `docs/architecture/l0/08-harness/agent-service-harness-spec.md` |
+| L1 服务架构 | `docs/architecture/l0/l1/agent-service/logical.md`, `process.md`, `physical.md`, `development.md`, `scenarios.md`, `spi-appendix.md` |
 
 ## 启动标准
 

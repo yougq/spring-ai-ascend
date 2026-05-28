@@ -57,16 +57,22 @@ status: draft
 | `07-invariants/` | 目录 | 架构不变量、禁止路径和可检查约束。 | 支撑静态检查、评审和 harness 断言。 | A5 状态与契约设计 / A9 集成验证与架构评审 | 当前以总不变量清单为主；模块特有不变量可下沉到模块目录。 | 不变量必须可验证，并能追踪到场景、状态、契约或原则。 |
 | `08-harness/` | 目录 | 系统级或跨模块 harness 规格。 | 将场景、状态、契约和不变量转成可执行验证思路。 | A7 Harness 设计与生成 | 按能力或跨模块机制组织；模块专属 harness 优先放到模块目录。 | 每个 harness spec 必须能追溯到场景、契约、状态或 verification row。 |
 | `09-verification/` | 目录 | 验证矩阵、测试策略和验证证据索引。 | 作为设计项到测试、评审、CI 或人工验证的追踪入口。 | A9 集成验证与架构评审 | verification matrix 是主索引；test strategy 说明测试组织方式。 | 每个关键设计项必须有验证方式或未覆盖说明。 |
-| `10-governance/` | 目录 | A2D 工作模型、目录 catalog、文档约束、评审流程、变更治理和版本归档。 | 管理文档体系本身，约束 AI 与人类协作方式。 | A9 集成验证与架构评审 / A10 版本归档 | 治理文件可以继续按工作模型、约束、流程、baseline 等子目录展开。 | 过程发现的新文档问题必须沉淀为约束或 catalog 更新。 |
+| `10-governance/` | 目录 | A2D 工作模型、目录 catalog、文档约束、评审流程、变更治理、版本级自动化边界和版本归档。 | 管理文档体系本身，约束 AI 与人类协作方式，并提供从版本意图到自动实现的集中检查点。 | H1 版本架构边界确认 / H2 架构审核包确认 / H3 发布例外审核 / A9 集成验证与架构评审 / A10 版本归档 | 治理文件可以继续按工作模型、约束、流程、版本意图、版本架构边界、审核包、交付视图、基线等子目录展开。 | 过程发现的新文档问题必须沉淀为约束或 catalog 更新；AI 不得把每个需求都升级成人工审批点。 |
+| `10-governance/version-intents/` | 预留目录 | 版本目标、功能需求、非功能需求、非目标、约束、风险预算和发布门槛。 | 保存人类对版本的集中输入，作为 AI 批量分析和建模的入口。 | H0 人类注入版本意图 / AI-1 需求归一化与分流 | 按 `<version>.md` 建档；同一版本的后续版本架构边界、审核包、交付视图必须回链到该文件。 | 不得要求人类先写完整设计；必须明确范围、非目标、约束和发布门槛。 |
+| `10-governance/architecture-envelopes/` | 预留目录 | AI 自动推进边界、允许变更、禁止变更、兼容性策略、验证要求和升级条件。 | 定义检查点通过后 AI 可以自动推进的版本级边界。 | AI-3 生成版本架构边界 / H1 版本架构边界确认 | 按 `<version>.md` 建档；必须引用版本意图和架构影响矩阵。 | 边界外变化必须升级；不得在触发升级条件后继续自动实现。 |
+| `10-governance/review-packets/` | 预留目录 | 4+1 评审视图、决策摘要、影响面、变更级别、开放问题和验证增量。 | 为 H2 提供人类可审阅的架构包，避免人工阅读全部 A2D 原始文档。 | AI-5 生成 4+1 评审视图 / H2 架构审核包确认 | 按 `<version>.md` 建档；必须回链到产生它的 A2D 已接受产物。 | 不得维护另一套事实；必须能追溯到场景、能力、模块卡、状态矩阵、ICD、不变量、harness 或验证矩阵。 |
+| `10-governance/delivery-projections/` | 预留目录 | 开发切片、实现任务草案、DoD、harness 计划、测试计划和验证证据索引。 | 为自动实现和开发协作提供可执行交付计划。 | AI-6 生成交付视图 / AI-7 自动实现、文档回写、测试补齐 | 按 `<version>.md` 建档；任务必须能追溯到版本架构边界和验证矩阵。 | 不得生成脱离版本架构边界的实现任务；每个关键任务必须有 DoD 和验证方式。 |
 | `10-governance/a2d-intake/` | 预留目录 | 结构化需求入口记录。 | 保存从 raw input 进入 A2D 的正式入口。 | A0 需求进入 | 当前可先用 `task.md` 过渡；稳定后按 `<id>.md` 建档。 | 每份 intake 必须说明用户、目标、约束、进入判断和澄清问题。 |
 | `10-governance/admission-decisions/` | 预留目录 | 准入分类和处理结论。 | 保存 Architecture Module / Capability / Contract / State 等分类判断。 | A1 架构准入判定 | 当前可先在 inventory 中记录；稳定后按 `<id>.md` 建档。 | 每个被纳入 Overview 或模块边界的对象必须有准入依据。 |
-| `10-governance/baselines/` | 预留目录 | 阶段性 architecture baseline note。 | 管理版本归档、superseded 关系和遗留问题结转。 | A10 版本归档 | 当前可先在 README 或 PR 中记录；稳定后按 `<version>.md` 建档。 | baseline 必须说明 active、draft、superseded 和 carried open issues。 |
+| `10-governance/baselines/` | 预留目录 | 阶段性架构基线说明。 | 管理版本归档、替代关系和遗留问题结转。 | A10 版本归档 | 当前可先在 README 或 PR 中记录；稳定后按 `<version>.md` 建档。 | 基线必须说明当前有效、草稿、已替代和结转开放问题。 |
+| `l1/<service>/` | 服务架构目录 | 单个服务的 L1 4+1 架构、服务级约束、服务级开放问题。 | 承接 L0 服务边界，并把服务内部逻辑、流程、部署、开发视图和场景结构化。 | H2 架构审核包确认 / A6 模块详细设计 / A9 集成验证与架构评审 | 每个服务必须至少包含 README 和 4+1 视图文件；复杂服务可以增加 `contracts.md`、`verification.md`、`open-issues.md`。 | L1 可以细化 L0，但不得改写 L0；必须声明继承的 L0 边界、状态归属和跨服务契约。 |
+| `l1/<service>/l2/<topic>/` | 服务内专题目录 | 单服务 L2 技术专题设计。 | 细化某个 L1 服务视图、边界合同或关键机制。 | A6 模块详细设计 / A7 Harness 设计与生成 / A9 集成验证与架构评审 | 每个专题按需要维护 README、design、contracts、verification、open-issues。 | 必须声明父级 L1 服务和被细化的 L1 视图；不得引入违反 L1 的依赖、状态 owner 或调用路径。 |
 
 ## 下级展开规则
 
 ### 系统级目录
 
-`00-overview/`、`01-capabilities/`、`03-state/`、`04-adrs/`、`05-contracts/`、`06-scenarios/`、`07-invariants/`、`08-harness/`、`09-verification/`、`10-governance/` 是系统级目录。
+`00-overview/`、`01-capabilities/`、`03-state/`、`04-adrs/`、`05-contracts/`、`06-scenarios/`、`07-invariants/`、`08-harness/`、`09-verification/`、`10-governance/`、`l1/` 是系统级目录。
 
 系统级目录的展开规则：
 
@@ -98,8 +104,8 @@ status: draft
 文件级 catalog 应放在对应目录内，例如：
 
 ```text
-docs/architecture/02-modules/<module>/document-artifact-catalog.md
-docs/architecture/06-scenarios/document-artifact-catalog.md
+docs/architecture/l0/02-modules/<module>/document-artifact-catalog.md
+docs/architecture/l0/06-scenarios/document-artifact-catalog.md
 ```
 
 ## 反模式
@@ -109,4 +115,3 @@ docs/architecture/06-scenarios/document-artifact-catalog.md
 - 新增目录没有说明主职责，只是把相似文件堆在一起。
 - 技术子场景、契约草案、harness spec 找不到所属 BA 场景或 A2D 活动。
 - 目录职责改变后，只改文件内容，不更新本文。
-

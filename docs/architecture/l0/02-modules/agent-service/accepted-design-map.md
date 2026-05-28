@@ -8,7 +8,7 @@ status: draft
 
 ## 目的
 
-对 `docs/L1/agent-service/*` 中已有设计项做准入判定，避免把旧口径、实现细节或已冲突内容原样迁移到新的 `docs/architecture` 文档体系。
+对 `docs/architecture/l0/l1/agent-service/*` 中已有设计项做准入判定，避免把旧口径、实现细节或已冲突内容原样迁移到新的 `docs/architecture` 文档体系。
 
 ## 准入分类
 

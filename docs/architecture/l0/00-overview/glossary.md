@@ -52,9 +52,9 @@ status: draft
 | Development-time Debug Evidence | 开发态用于理解一次 Agent 执行路径的证据，包括 Task timeline、context evidence、model evidence、tool decision evidence 和 failure evidence。 | Observability + Harness + agent-service query surface | 只给平台内部看的日志 |
 | Runtime Operations Insight | 运行态用于运维和运营 Agent 功能的宏观指标与调用链，包括请求量、成功率、延迟、成本、错误、capacity、trace 和 audit。 | Observability capability | 单次 debug 日志、业务系统自有状态 |
 | Replay-safe Fixture | 从线上失败或关键路径中导出的脱敏测试夹具，用于在开发态复现，不包含跨租户数据或真实业务状态快照。 | Harness + Observability governance | 生产数据备份 |
-| Contract / ICD | 跨模块交互的语义契约，包含状态、错误、幂等、重试、权限、观测。 | `docs/architecture/05-contracts/` draft | API 字段清单 |
-| Scenario Spec | 分为 BA-* 业务活动级核心场景和 technical sub-scenario，两者都必须有 assertions。 | `docs/architecture/06-scenarios/` | 只写流程图；把机制场景当核心场景 |
-| Harness | 用 mocks、stubs、fixtures、contract tests、failure injection 驱动模块开发的测试壳。 | `docs/architecture/08-harness/` | 完整生产实现 |
-| Invariant | 可检查的架构不变量。 | `docs/architecture/07-invariants/` | 口号 |
+| Contract / ICD | 跨模块交互的语义契约，包含状态、错误、幂等、重试、权限、观测。 | `docs/architecture/l0/05-contracts/` draft | API 字段清单 |
+| Scenario Spec | 分为 BA-* 业务活动级核心场景和 technical sub-scenario，两者都必须有 assertions。 | `docs/architecture/l0/06-scenarios/` | 只写流程图；把机制场景当核心场景 |
+| Harness | 用 mocks、stubs、fixtures、contract tests、failure injection 驱动模块开发的测试壳。 | `docs/architecture/l0/08-harness/` | 完整生产实现 |
+| Invariant | 可检查的架构不变量。 | `docs/architecture/l0/07-invariants/` | 口号 |
 | design_only | 契约或 SPI 形状存在，但未形成 runtime enforced 行为。 | contract catalog / ADR | shipped |
-| draft | 本目录中的工作草案，还未迁移到权威来源。 | `docs/architecture/` | authoritative |
+| draft | 本目录中的工作草案，还未迁移到权威来源。 | `docs/architecture/l0/` | authoritative |

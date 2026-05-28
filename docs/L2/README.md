@@ -5,45 +5,48 @@ status: scaffold
 authority: "ADR-0068 (Layered 4+1 + Architecture Graph)"
 ---
 
-# L2 — Technical Detailed Designs
+# L2 — 兼容入口
 
-This directory holds **L2** documents in the Layered 4+1 corpus defined by Rule 33 / ADR-0068.
+L2 专题设计不再默认放在 `docs/L2/` 平铺目录。新的归属规则是：
+
+```text
+docs/architecture/l0/l1/<service>/l2/<topic>/    # L2 专题挂在父级 L1 服务下
+```
+
+本目录只作为旧路径兼容入口和迁移索引保留。
 
 ## Scope
 
-L2 documents are **per-feature** technical-detail designs that bind specific implementation classes, packages, sequences, and physical placements to the L0 / L1 contracts above. Each L2 document:
+L2 文档是专题级技术设计，用来把具体实现类、包、时序和部署细节绑定到上层 L0 / L1 约束。每个 L2 文档：
 
-- Targets one feature or one use case (not a module, not the whole system).
-- May omit views that are not relevant to the feature (Rule 33).
-- Must declare `level: L2` + `view: {logical|development|process|physical|scenarios}` front-matter.
-- Must link upward to the L1 module document(s) it specialises and the ADRs it implements.
-- Lives here under `docs/L2/<feature-slug>/<view>.md` or `docs/L2/<feature-slug>.md`.
+- 必须声明它细化的父级 L1 服务。
+- 必须声明 `level: L2` 和 `view: {logical|development|process|physical|scenarios}` frontmatter。
+- 必须链接到被细化的 L1 视图、边界合同或 ADR。
+- 不得引入违反 L0 / L1 的服务依赖、状态 owner 或跨服务调用路径。
 
 ## Naming conventions
 
-```
-docs/L2/run-http-contract/logical.md         # L2, logical view, run HTTP contract
-docs/L2/run-http-contract/process.md         # L2, process view, idempotency body lifetime
-docs/L2/telemetry-vertical/development.md    # L2, development view, package layout
+```text
+docs/architecture/l0/l1/agent-service/l2/run-http-contract/logical.md
+docs/architecture/l0/l1/agent-service/l2/idempotency-body-lifetime/process.md
 ```
 
-A single-file form (`docs/L2/<feature>.md`) is permitted when only one view is in scope.
+单文件形式仍然允许，但必须放在对应父级目录下。
 
 ## Gate behaviour
 
-- Gate Rule 37 (`architecture_artefact_front_matter`): every file in this tree (excluding this README) must declare `level: L2` + `view:` front-matter.
-- Gate Rule 38 (`architecture_graph_well_formed`): every L2 file must link upward to at least one L1 or L0 node (resolves through the `relates_to:` or `extends:` edges in the L2 front-matter).
-- Gate Rule 39 (`review_proposal_front_matter`): proposals in `docs/logs/reviews/` touching L2 files must declare `affects_level: L2`.
+- Gate 仍应检查 L2 文件 frontmatter。
+- L2 文件必须可追溯到父级 L1 或 L0 节点。
+- 触碰 L2 的评审记录必须说明影响层级。
 
 ## Current contents
 
-This directory ships empty at W1 entry. First L2 documents to land (post-W1):
+待迁入的新位置：
 
 | Slug | Trigger |
 |---|---|
-| `run-http-contract` | when authenticated `POST /v1/runs` matrix completes (closes P0-2 / P0-3 from L1 expert review) |
-| `telemetry-vertical` | when W2 Hook SPI un-freezes |
-| `idempotency-body-lifetime` | when `IdempotencyHeaderFilter` body-wrapper fix lands (closes P1-1) |
+| `docs/architecture/l0/l1/agent-service/l2/run-http-contract/` | authenticated `POST /v1/runs` matrix |
+| `docs/architecture/l0/l1/agent-service/l2/idempotency-body-lifetime/` | `IdempotencyHeaderFilter` body-wrapper fix |
 
 ## Authority
 
