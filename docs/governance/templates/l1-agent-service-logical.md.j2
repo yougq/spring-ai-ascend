@@ -359,7 +359,7 @@ replaces it as M6's downstream type.
 
 ## 7. RunEvent Sealed Hierarchy (per ADR-0145)
 
-> **Status**: `design_only` per [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml). The Java sealed `RunEvent` interface + 10 record variants land in a follow-up impl-mode wave. Until then, Rule R-M.e (Every emitted `RunEvent` declares `EvolutionExport`) is design-armed but not actively gated. `EvolutionExport` enum already ships at `agent-service.../runtime/evolution/EvolutionExport.java`.
+> **Status**: `design_only` per [`docs/contracts/run-event.v1.yaml`](../../contracts/run-event.v1.yaml). The Java sealed `RunEvent` interface + 10 record variants land in a follow-up impl-mode wave. Until then, Rule R-M.e (Every emitted `RunEvent` declares `EvolutionExport`) is design-armed but not actively gated. `EvolutionExport` enum already ships at `agent-service.../runtime/evolution/EvolutionExport.java`.
 
 ```mermaid
 classDiagram
@@ -521,15 +521,15 @@ classDiagram
   RLS policy, three-track bus binding, sandbox boundary.
 - Development View: [`development.md`](development.md) — package tree,
   layer↔package matrix per ADR-0144, 5 L2 Boundary Contracts.
-- SPI Appendix: [`spi-appendix.md`](spi-appendix.md) — 9 active SPI
+- SPI Appendix: [`spi-appendix.md`](05-contracts/spi-appendix.md) — 9 active SPI
   interfaces with 4-way parity (Rule G-1.1.b).
-- Module-root grounding: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Module-root grounding: [`agent-service/ARCHITECTURE.md`](../../../agent-service/ARCHITECTURE.md)
   §1-§9.
-- Contract anchors: [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml),
-  [`docs/contracts/engine-envelope.v1.yaml`](../../../../docs/contracts/engine-envelope.v1.yaml),
-  [`docs/contracts/engine-hooks.v1.yaml`](../../../../docs/contracts/engine-hooks.v1.yaml),
-  [`docs/contracts/s2c-callback.v1.yaml`](../../../../docs/contracts/s2c-callback.v1.yaml),
-  [`docs/governance/bus-channels.yaml`](../../../../docs/governance/bus-channels.yaml).
+- Contract anchors: [`docs/contracts/run-event.v1.yaml`](../../contracts/run-event.v1.yaml),
+  [`docs/contracts/engine-envelope.v1.yaml`](../../contracts/engine-envelope.v1.yaml),
+  [`docs/contracts/engine-hooks.v1.yaml`](../../contracts/engine-hooks.v1.yaml),
+  [`docs/contracts/s2c-callback.v1.yaml`](../../contracts/s2c-callback.v1.yaml),
+  [`docs/governance/bus-channels.yaml`](../../governance/bus-channels.yaml).
 - Authoritative ADRs: ADR-0136 (vocabulary) · ADR-0137 (SuspendSignal canonical) ·
   ADR-0138 (5-layer L1) · ADR-0139 (Fast/Slow Path narrowed) · ADR-0140 (5a/5b split) ·
   ADR-0141 (Layer 3 design_only) · ADR-0142 (Run aggregate single owner) ·
