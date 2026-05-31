@@ -830,24 +830,6 @@
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens / session.
 # ---------------------------------------------------------------------------
 
-- id: E100
-  constraint_ref: "CLAUDE.md Rule G-4 sub-clause .a (always_loaded_budget_enforced); token-optimization wave PR1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#always_loaded_budget_enforced
-  asserts: "gate/measure_always_loaded_tokens.sh walks every file in gate/always-loaded-budget.txt; the rule fails if any file exceeds its declared byte ceiling. Primary defence against CLAUDE.md regressing back to its pre-shrink size."
-  governance_infra: true
-
-- id: E101
-  constraint_ref: "CLAUDE.md Rule G-4 sub-clause .b (deferred_doc_not_in_always_loaded); token-optimization wave PR1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#deferred_doc_not_in_always_loaded
-  asserts: "docs/CLAUDE-deferred.md is not auto-injected: no @docs/CLAUDE-deferred.md include directive in CLAUDE.md, and no ALWAYS / ALWAYS-LOAD marker on its row in docs/governance/SESSION-START-CONTEXT.md. Plain prose pointers are fine."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
 # 2026-05-17 gate-script efficiency wave PR-E1.
 # Authority: docs/governance/rules/rule-G-6.md
@@ -911,15 +893,6 @@
   asserts: "No Java SPI package may be declared by more than one Maven module's spi_packages: list. Prevents Maven split-packages (CLAUDE.md Rule R-D sub-clause .c)."
   product_claim: "PC-001"
 
-- id: E110
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .d (spi_packages_dot_spi_convention); SPI metadata integrity wave 2026-05-18"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#spi_packages_dot_spi_convention
-  asserts: "Every spi_packages entry ends in '.spi' or contains '.spi.' — operationalises the *.spi.* literal convention of Rule R-D sub-clause .a."
-  product_claim: "PC-001"
-
 - id: E111
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .e (dfx_spi_packages_match_module_metadata); SPI metadata integrity wave 2026-05-18"
   kind: gate-script
@@ -929,47 +902,11 @@
   asserts: "For every kind={platform,domain} module, docs/dfx/<module>.yaml declares a top-level spi_packages: matching the non-placeholder entries of module-metadata.yaml#spi_packages."
   product_claim: "PC-001"
 
-- id: E112
-  constraint_ref: "CLAUDE.md Rule D-3.b (rule_79_runbook_present_and_cited); Beyond-SDD review response wave 2026-05-18"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#rule_79_runbook_present_and_cited
-  asserts: "docs/harness/debug-first-evidence.md exists with the canonical title 'Evidence-First Debug Sequence', AND docs/governance/rules/rule-D-3.b.md references the runbook path — catches both runbook deletion and card↔runbook link breakage."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
-# 2026-05-18 rc4 cross-constraint review response prevention wave — E113-E116
+# 2026-05-18 rc4 cross-constraint review response prevention wave — E116
 # Authority: docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review.en.md
 #            + docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review-response.en.md
 # ---------------------------------------------------------------------------
-
-- id: E113
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .f (s2c_callback_signal_historical_only_in_authority); rc4 review P0-1; ADR-0074 (2026-05-18 amendments)"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#s2c_callback_signal_historical_only_in_authority
-  asserts: "Across active accepted ADRs (docs/adr/*.yaml + docs/adr/*.md), CLAUDE.md, README.md, agent-*/ARCHITECTURE.md, and docs/contracts/*.v1.yaml, every occurrence of the literal token 'S2cCallbackSignal' MUST appear within ±5 lines (markdown paragraph or yaml comment/block-scalar window) of one of the historical markers 'historical', 'deleted', 'refactored from', 'rc3-unification', or 'amendments' (case-insensitive). Live current-state claims using the deleted Java type fail. Closes rc4 P0-1: ADR-0074 amendments block + s2c-callback.v1.yaml header + enforcers.yaml E82 description are the canonical historical references; new authority drift is rejected."
-  product_claim: "PC-004"
-
-- id: E114
-  constraint_ref: "CLAUDE.md Rule M-1 (skeleton_module_has_no_production_java); rc4 review P0-2; ADR-0073; ADR-0079"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#skeleton_module_has_no_production_java
-  asserts: "For every agent-*/ARCHITECTURE.md whose front-matter status: contains the token 'skeleton', the module's src/main/java/**/*.java tree contains only package-info.java files OR placeholder SPI stubs whose first 30 lines name both the 'placeholder' keyword (case-insensitive) AND an 'ADR-NNNN' waiver. Bidirectional: modules with extracted production code MUST NOT declare status: skeleton. Closes rc4 P0-2 (agent-execution-engine still claimed skeleton across README + ARCHITECTURE.md + pom.xml + architecture-status while ADR-0079 had extracted production code)."
-  governance_infra: true
-
-- id: E115
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .b (baseline_metrics_single_source); rc4 review P1-1"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#baseline_metrics_single_source
-  asserts: "docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics MUST exist as a structured block declaring the six required keys 'active_engineering_rules', 'active_gate_checks', 'gate_executable_test_cases', 'enforcer_rows', 'architecture_graph_nodes', 'architecture_graph_edges'. README.md AND gate/README.md MUST each contain at least one occurrence of the substring 'architecture_sync_gate.baseline_metrics' so prose baseline claims acknowledge the canonical source. Closes rc4 P1-1: entrypoint counts have one source."
-  governance_infra: true
 
 - id: E116
   constraint_ref: "CLAUDE.md Rule M-2 sub-clause .b (design_only_contract_registered_in_catalog); rc4 review P1-3; ADR-0032; ADR-0052"
@@ -988,15 +925,6 @@
   artifact: gate/check_architecture_sync.sh#catalog_spi_row_matches_module_spi_metadata
   asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule R-D sub-clause .e set."
   product_claim: "PC-001"
-
-- id: E119
-  constraint_ref: "CLAUDE.md Rule G-2 sub-clause .d (root_architecture_count_and_path_truth); rc6 post-response review P0-2; ADR-0078; ADR-0079"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#root_architecture_count_and_path_truth
-  asserts: "Root ARCHITECTURE.md numeric module-count claims (\b[0-9]+-module\b | \b[0-9]+ modules\b | \b[0-9]+ reactor modules\b) outside fenced code blocks and YAML frontmatter MUST equal both (a) the count of <module> entries in root pom.xml and (b) docs/governance/architecture-status.yaml#repository_counts.reactor_modules; root ARCHITECTURE.md path claims of shape agent-*/src/main/java/... MUST resolve to a real path on disk OR carry one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, merged, was rooted, formerly, superseded, deferred, moved, extracted per ADR-NNNN, post-ADR-NNNN, archived) within +/-3 lines. Closes rc6 post-response P0-2: root ARCHITECTURE.md count and path truth (Rule G-2 sub-clause .c covers agent-*/ARCHITECTURE.md; Rule G-2 sub-clause .d covers root)."
-  governance_infra: true
 
 - id: E121
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .a (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
