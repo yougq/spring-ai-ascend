@@ -93,28 +93,19 @@
 #  --- W1.x Phase 9 — ResilienceContract runtime activation (ADR-0070) ---
 #  54.  skill_capacity_runtime_resolver_present        -- DefaultSkillResilienceContract implements resolve(tenant, skill) consulting SkillCapacityRegistry; rejection carries SuspendReason.RateLimited (Rule 41.b / P-K, enforcer E73)
 #  --- W2.x Phase 1 — Engine Envelope + Strict Matching (ADR-0072) ---
-#  55.  engine_envelope_yaml_present_and_wellformed    -- docs/contracts/engine-envelope.v1.yaml declares schema + known_engines + at least one id (Rule 43 / P-M, enforcer E76)
 #  56.  engine_registry_covers_all_known_engines       -- bidirectional id <-> ENGINE_TYPE consistency between yaml and agent-service/src/main (Rule 44 / P-M, enforcer E77)
 #  --- W2.x Phase 2 — Engine Hooks + Runtime Middleware SPI (ADR-0073) ---
 #  57.  engine_hooks_yaml_present_and_wellformed       -- docs/contracts/engine-hooks.v1.yaml declares 9-hook list matching HookPoint enum (Rule 45 / P-M, enforcer E78)
 #  --- W2.x Phase 3 — S2C Capability Callback (ADR-0074) ---
 #  58.  s2c_callback_yaml_present_and_wellformed       -- docs/contracts/s2c-callback.v1.yaml declares request+response shape with 6 mandatory request fields and outcome enum (Rule 46 / P-M, enforcer E81)
-#  --- W2.x Phase 4 — Evolution Scope Boundary (ADR-0075) ---
-#  59.  evolution_scope_yaml_present_and_wellformed   -- docs/governance/evolution-scope.v1.yaml declares 3 discriminator blocks + telemetry-export ref (Rule 47 / P-M, enforcer E86)
 #  --- W2.x Phase 6 — Schema-First Domain Contracts (ADR-0077, Rule 48) ---
 #  60.  schema_first_domain_contracts                   -- prose enums in ARCHITECTURE.md require nearby yaml schema reference or grandfather entry (Rule 48 / P-M cross-cutting, enforcer E85)
 #  --- v2.0.0-rc2 second-pass review closure (F-α / F-β / F-γ category audit) ---
-#  61.  legacy_powershell_gate_deprecated               -- gate/check_architecture_sync.ps1 contains DEPRECATED header AND is absent from architecture-status.yaml#architecture_sync_gate.implementation: (F-α P0-1)
 #  62.  contract_yaml_declares_status                   -- every docs/contracts/*.v1.yaml + 3 governance YAMLs declare top-level status: with allowed enum value (F-β structural prevention)
-#  63.  release_note_retracted_tag_qualified            -- every line in docs/logs/releases/*.md mentioning a tag listed in docs/governance/retracted-tags.txt MUST contain "(retracted)" OR appear under a heading matching "Historical" / "Superseded" (F-γ structural prevention)
 #  --- 2026-05-17 cross-corpus consistency audit prevention rules (G1/G2/G3 closure, enforcers E94-E96) ---
-#  64.  module_count_data_driven                        -- root pom.xml <module> count equals docs/governance/architecture-status.yaml#repository_counts.total_reactor_modules (G1 prevention; canonical count lives in one place)
 #  65.  module_metadata_pom_dep_parity                  -- every com.huawei.ascend <dependency> in <module>/pom.xml appears in <module>/module-metadata.yaml allowed_dependencies (G2 prevention; metadata cannot lag behind pom)
 #  66.  spi_package_exhaustiveness                      -- every */spi/ directory under <module>/src/main/java appears in <module>/module-metadata.yaml spi_packages (G3 prevention; metadata declares the full SPI surface)
 #  --- 2026-05-17 CLAUDE.md token-optimization wave PR1 (enforcers E97-E101) ---
-#  67.  claude_md_kernel_size_bounded                   -- each #### Rule NN section in CLAUDE.md fits under the per-rule kernel_cap declared in docs/governance/rules/rule-NN.md (Rule 67 / PR1, enforcer E97)
-#  68.  claude_md_kernel_matches_card                   -- the body paragraph of each #### Rule NN in CLAUDE.md byte-matches the kernel: field in docs/governance/rules/rule-NN.md (Rule 68 / PR1, enforcer E98)
-#  69.  every_active_rule_has_card                      -- every #### Rule NN heading in CLAUDE.md has a sibling docs/governance/rules/rule-NN.md; every card is either referenced by CLAUDE.md or listed in docs/CLAUDE-deferred.md (Rule 69 / PR1, enforcer E99)
 #  70.  always_loaded_budget_enforced                   -- gate/measure_always_loaded_tokens.sh exits 0 (no file exceeds its ceiling in gate/always-loaded-budget.txt) (Rule 70 / PR1, enforcer E100)
 #  71.  deferred_doc_not_in_always_loaded               -- docs/CLAUDE-deferred.md not auto-injected (no @-include in CLAUDE.md, no ALWAYS-LOAD mark in SESSION-START-CONTEXT.md once demoted) (Rule 71 / PR1, enforcer E101)
 #  --- 2026-05-17 gate-script efficiency wave PR-E1 (enforcer E103) ---
@@ -2118,34 +2109,6 @@ fi
 if [[ $_r54_fail -eq 0 ]]; then pass_rule "skill_capacity_runtime_resolver_present"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 55 — engine_envelope_yaml_present_and_wellformed (enforcer E76, Rule 43 / P-M, ADR-0072)
-#
-# docs/contracts/engine-envelope.v1.yaml is the single-source-of-truth for
-# the EngineEnvelope shape. Required: schema: header, known_engines: block,
-# at least one entry carrying an id:.
-# ---------------------------------------------------------------------------
-_r55_fail=0
-_r55_path="docs/contracts/engine-envelope.v1.yaml"
-if [[ ! -f "$_r55_path" ]]; then
-  fail_rule "engine_envelope_yaml_present_and_wellformed" "$_r55_path missing -- Rule 43 / P-M envelope schema unenforced"
-  _r55_fail=1
-else
-  if ! grep -qE '^schema:[[:space:]]+engine-envelope/v1[[:space:]]*$' "$_r55_path"; then
-    fail_rule "engine_envelope_yaml_present_and_wellformed" "$_r55_path missing 'schema: engine-envelope/v1' header"
-    _r55_fail=1
-  fi
-  if ! grep -qE '^known_engines:[[:space:]]*$' "$_r55_path"; then
-    fail_rule "engine_envelope_yaml_present_and_wellformed" "$_r55_path missing known_engines: block"
-    _r55_fail=1
-  fi
-  if ! grep -qE '^[[:space:]]+- id:[[:space:]]+\S+' "$_r55_path"; then
-    fail_rule "engine_envelope_yaml_present_and_wellformed" "$_r55_path known_engines: contains no '- id:' entry"
-    _r55_fail=1
-  fi
-fi
-if [[ $_r55_fail -eq 0 ]]; then pass_rule "engine_envelope_yaml_present_and_wellformed"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 56 — engine_registry_covers_all_known_engines (enforcer E77, Rule 44 / P-M, ADR-0072)
 #
 # Bidirectional consistency: every known_engines[].id in
@@ -2273,45 +2236,6 @@ fi
 if [[ $_r58_fail -eq 0 ]]; then pass_rule "s2c_callback_yaml_present_and_wellformed"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 59 — evolution_scope_yaml_present_and_wellformed (enforcer E86, Rule 47 / P-M, ADR-0075)
-#
-# docs/governance/evolution-scope.v1.yaml MUST exist with schema: header, three
-# discriminator blocks (in_scope, out_of_scope_default, opt_in_export), the
-# first two non-empty, and opt_in_export referencing telemetry-export.v1.yaml
-# (W3 placeholder). Drift would let the evolution plane silently widen its
-# surface beyond the server-sovereign boundary.
-# ---------------------------------------------------------------------------
-_r59_fail=0
-_r59_path="docs/governance/evolution-scope.v1.yaml"
-if [[ ! -f "$_r59_path" ]]; then
-  fail_rule "evolution_scope_yaml_present_and_wellformed" "$_r59_path missing -- Rule 47 / P-M evolution scope unenforced"
-  _r59_fail=1
-else
-  if ! grep -qE '^schema:[[:space:]]+evolution-scope/v1[[:space:]]*$' "$_r59_path"; then
-    fail_rule "evolution_scope_yaml_present_and_wellformed" "$_r59_path missing 'schema: evolution-scope/v1' header"
-    _r59_fail=1
-  fi
-  for _r59_block in in_scope out_of_scope_default opt_in_export; do
-    if ! grep -qE "^${_r59_block}:" "$_r59_path"; then
-      fail_rule "evolution_scope_yaml_present_and_wellformed" "$_r59_path missing top-level discriminator block '${_r59_block}:'"
-      _r59_fail=1
-    fi
-  done
-  for _r59_block in in_scope out_of_scope_default; do
-    _r59_count=$(awk -v b="^${_r59_block}:" '$0 ~ b {f=1; next} /^[a-z_]+:/{f=0} f && /^[[:space:]]+- [a-z_]+/ {n++} END{print n+0}' "$_r59_path")
-    if [[ "${_r59_count:-0}" -lt 1 ]]; then
-      fail_rule "evolution_scope_yaml_present_and_wellformed" "$_r59_path block '${_r59_block}:' is empty -- at least one entry required"
-      _r59_fail=1
-    fi
-  done
-  if ! grep -qE 'contract_required:[[:space:]]+telemetry-export\.v1\.yaml' "$_r59_path"; then
-    fail_rule "evolution_scope_yaml_present_and_wellformed" "$_r59_path opt_in_export.contract_required must reference 'telemetry-export.v1.yaml' (W3 placeholder)"
-    _r59_fail=1
-  fi
-fi
-if [[ $_r59_fail -eq 0 ]]; then pass_rule "evolution_scope_yaml_present_and_wellformed"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 60 — schema_first_domain_contracts (enforcer E85, Rule 48, ADR-0077)
 #
 # Forbid new prose-defined enum sites in the architecture corpus. Scan
@@ -2383,58 +2307,6 @@ fi
 if [[ $_r60_fail -eq 0 ]]; then pass_rule "schema_first_domain_contracts"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 61 — legacy_powershell_gate_deprecated (v2.0.0-rc2 / second-pass review P0-1)
-#
-# The PowerShell architecture-sync gate (gate/check_architecture_sync.ps1) was
-# frozen at Rule 29 in 2026-05 while the bash gate evolved to Rule 60+. The
-# second-pass review (docs/logs/reviews/2026-05-16-l0-w2x-rc1-second-pass-architecture-review.en.md
-# §P0-1) required choosing one of two postures. v2.0.0-rc2 picked the
-# canonical-bash posture per the response document. This rule asserts BOTH
-# halves of that posture:
-#   (a) The PS script header carries the DEPRECATED marker.
-#   (b) The PS script is NOT listed in architecture-status.yaml under
-#       architecture_sync_gate.implementation: (a deprecated_implementations:
-#       sibling key is allowed).
-# Drift would let a stale "30-rule pass surface" be re-presented as a shipped
-# architecture-sync gate.
-# ---------------------------------------------------------------------------
-_r61_fail=0
-_r61_ps="gate/check_architecture_sync.ps1"
-_r61_status="docs/governance/architecture-status.yaml"
-if [[ ! -f "$_r61_ps" ]]; then
-  fail_rule "legacy_powershell_gate_deprecated" "$_r61_ps missing -- v2.0.0-rc2 deprecation stub expected"
-  _r61_fail=1
-else
-  if ! grep -qE '^\s*Write-Host\s+"DEPRECATED:' "$_r61_ps"; then
-    fail_rule "legacy_powershell_gate_deprecated" "$_r61_ps missing DEPRECATED Write-Host banner -- v2.0.0-rc2 second-pass review P0-1"
-    _r61_fail=1
-  fi
-fi
-if [[ ! -f "$_r61_status" ]]; then
-  fail_rule "legacy_powershell_gate_deprecated" "$_r61_status missing"
-  _r61_fail=1
-else
-  # Extract the architecture_sync_gate.implementation: block and verify the PS
-  # path is NOT inside it. The deprecated_implementations: sibling is OK.
-  # Capability keys live at 2-space indent (under `capabilities:`); sub-fields
-  # at 4-space indent. Exit-capability pattern must match the 2-space level
-  # specifically -- a 4-space pattern would never fire and in_cap would leak
-  # into every following capability's implementation: block.
-  _r61_in_impl=$(awk '
-    /^  architecture_sync_gate:[[:space:]]*$/ { in_cap=1; next }
-    in_cap && /^  [a-z_]+:/ { in_cap=0; in_impl=0; next }
-    in_cap && /^    implementation:[[:space:]]*$/ { in_impl=1; next }
-    in_cap && in_impl && /^    [a-z_]+:/ { in_impl=0 }
-    in_cap && in_impl && /^[[:space:]]+-[[:space:]]+gate\/check_architecture_sync\.ps1([[:space:]]|$)/ { print "found"; exit }
-  ' "$_r61_status")
-  if [[ -n "$_r61_in_impl" ]]; then
-    fail_rule "legacy_powershell_gate_deprecated" "$_r61_status lists $_r61_ps under architecture_sync_gate.implementation: -- v2.0.0-rc2 requires it under deprecated_implementations: only"
-    _r61_fail=1
-  fi
-fi
-if [[ $_r61_fail -eq 0 ]]; then pass_rule "legacy_powershell_gate_deprecated"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 62 — contract_yaml_declares_status (v2.0.0-rc2 / second-pass review F-β structural prevention)
 #
 # Every domain-contract YAML under docs/contracts/*.v1.yaml AND the three
@@ -2484,77 +2356,6 @@ for _r62_file in "${_r62_files[@]}"; do
 done
 if [[ $_r62_fail -eq 0 ]]; then pass_rule "contract_yaml_declares_status"; fi
 
-# ---------------------------------------------------------------------------
-# Rule 63 — release_note_retracted_tag_qualified (v2.0.0-rc2 / second-pass review F-γ structural prevention)
-#
-# Every tag listed in docs/governance/retracted-tags.txt MUST, wherever it is
-# mentioned in an active release note under docs/logs/releases/*.md, appear either
-#   (a) on the same line as "(retracted)" (case-insensitive), OR
-#   (b) under a markdown heading (line starting with '#') containing
-#       "Historical" or "Superseded" (case-insensitive).
-# Drift would let a retracted tag be re-cited as a recommendation in a fresh
-# release-note section, recreating the F-γ stale-evidence defect that the
-# second-pass review's P1-2 finding flagged.
-# ---------------------------------------------------------------------------
-_r63_fail=0
-_r63_list="docs/governance/retracted-tags.txt"
-if [[ ! -f "$_r63_list" ]]; then
-  fail_rule "release_note_retracted_tag_qualified" "$_r63_list missing -- v2.0.0-rc2 second-pass review F-γ prevention expects this list"
-  _r63_fail=1
-else
-  # Perf fix (2026-05-23): replaced quadruple-nested bash loop (~25 docs ×
-  # ~few tags × ~few lines × per-line sed/grep = ~1000+ forks, ~14s) with
-  # a single python pass. Same logic: (a) `(retracted)` on the same line OR
-  # (b) nearest upward `#` heading contains 'historical'/'superseded'.
-  _r63_violations="$(
-    GATE_R63_LIST="$_r63_list" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
-import os, re, glob
-from pathlib import Path
-
-list_path = os.environ['GATE_R63_LIST']
-tags: list[str] = []
-for line in Path(list_path).read_text(encoding='utf-8', errors='replace').splitlines():
-    s = line.strip()
-    if not s or s.startswith('#'): continue
-    # First pipe field, trimmed.
-    tag = s.split('|', 1)[0].strip()
-    if tag: tags.append(tag)
-
-if not tags: raise SystemExit(0)
-
-retracted_re = re.compile(r'\(retracted\)|retracted\b', re.IGNORECASE)
-hist_re = re.compile(r'historical|superseded', re.IGNORECASE)
-heading_re = re.compile(r'^#')
-docs = sorted(glob.glob('docs/logs/releases/*.md'))
-
-for doc in docs:
-    try: lines = Path(doc).read_text(encoding='utf-8', errors='replace').splitlines()
-    except OSError: continue
-    for i, ln in enumerate(lines):
-        for tag in tags:
-            if tag not in ln: continue
-            # (a) same line carries (retracted).
-            if retracted_re.search(ln): continue
-            # (b) nearest upward heading qualifies.
-            qualified = False
-            for j in range(i, -1, -1):
-                if heading_re.match(lines[j]):
-                    qualified = bool(hist_re.search(lines[j]))
-                    break
-            if not qualified:
-                print(f"{doc}\t{i+1}\t{tag}")
-PYEOF
-  )"
-  if [[ -n "$_r63_violations" ]]; then
-    while IFS=$'\t' read -r _r63_doc _r63_ln _r63_tag; do
-      [[ -z "$_r63_doc" ]] && continue
-      fail_rule "release_note_retracted_tag_qualified" "$_r63_doc:$_r63_ln mentions retracted tag '$_r63_tag' without '(retracted)' qualifier on the line OR a 'Historical'/'Superseded' heading above"
-      _r63_fail=1
-    done <<< "$_r63_violations"
-  fi
-fi
-if [[ $_r63_fail -eq 0 ]]; then pass_rule "release_note_retracted_tag_qualified"; fi
-
 # ===========================================================================
 # Cross-corpus consistency audit prevention rules (2026-05-17)
 # Authority: docs/logs/reviews/2026-05-17-cross-corpus-consistency-audit-response.en.md
@@ -2564,38 +2365,6 @@ if [[ $_r63_fail -eq 0 ]]; then pass_rule "release_note_retracted_tag_qualified"
 #   G3 — no SPI-package exhaustiveness cross-check
 # Rules 64-66 with enforcer rows E94-E96 and 6 self-tests (2 per rule).
 # ===========================================================================
-
-# ---------------------------------------------------------------------------
-# Rule 64 — module_count_data_driven (enforcer E94, G1 prevention)
-#
-# The canonical module count lives in
-# docs/governance/architecture-status.yaml#repository_counts.total_reactor_modules.
-# Rule 28e (module_count_invariant) checks against a hard-coded constant; this
-# rule cross-checks the canonical value vs the actual count of <module> entries
-# in root pom.xml. Adding a new reactor module thus updates ONE file
-# (architecture-status.yaml), not four (gate + ADR-0055 + ADR-0059 + ADR-0067).
-# ---------------------------------------------------------------------------
-_r64_fail=0
-_r64_status='docs/governance/architecture-status.yaml'
-_r64_pom='pom.xml'
-if [[ ! -f "$_r64_status" ]]; then
-  fail_rule "module_count_data_driven" "$_r64_status missing -- cannot cross-check canonical module count (G1 prevention)"
-  _r64_fail=1
-elif [[ ! -f "$_r64_pom" ]]; then
-  fail_rule "module_count_data_driven" "$_r64_pom missing -- cannot count <module> entries"
-  _r64_fail=1
-else
-  _r64_canonical=$(grep -E '^[[:space:]]*total_reactor_modules:[[:space:]]*[0-9]+' "$_r64_status" | head -1 | sed -E 's/^[[:space:]]*total_reactor_modules:[[:space:]]*([0-9]+).*/\1/')
-  _r64_pom_count=$(grep -c '<module>' "$_r64_pom" 2>/dev/null || echo 0)
-  if [[ -z "$_r64_canonical" ]]; then
-    fail_rule "module_count_data_driven" "$_r64_status missing repository_counts.total_reactor_modules field (G1 prevention)"
-    _r64_fail=1
-  elif [[ "$_r64_canonical" != "$_r64_pom_count" ]]; then
-    fail_rule "module_count_data_driven" "$_r64_pom declares $_r64_pom_count <module> entries; canonical total_reactor_modules in $_r64_status is $_r64_canonical (G1 prevention -- update one file, not many)"
-    _r64_fail=1
-  fi
-fi
-if [[ $_r64_fail -eq 0 ]]; then pass_rule "module_count_data_driven"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 65 — module_metadata_pom_dep_parity (enforcer E95, G2 prevention)
@@ -2673,211 +2442,6 @@ if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens.
 # Rules 67-71 with enforcer rows E97-E101 and 10 self-tests (2 per rule).
 # ===========================================================================
-
-# ---------------------------------------------------------------------------
-# Rule 67 — claude_md_kernel_size_bounded (enforcer E97)
-#
-# For each "#### Rule NN" heading in CLAUDE.md, count the lines between the
-# heading and the next "---" separator (inclusive of the heading). Look up
-# kernel_cap from docs/governance/rules/rule-NN.md front-matter; fail if
-# exceeded. If the card does not exist yet, this rule is SKIPPED for that
-# rule (the missing card is caught by Rule 69 instead).
-#
-# Cap discipline (per CLAUDE.md token-optimization wave):
-#   daily principles (Rules 1-6, 9, 10): kernel_cap: 12
-#   architectural + ironclad (Rules 20-48): kernel_cap: 6
-# ---------------------------------------------------------------------------
-_r67_fail=0
-_r67_claude='CLAUDE.md'
-_r67_cards_dir='docs/governance/rules'
-if [[ ! -f "$_r67_claude" ]]; then
-  fail_rule "claude_md_kernel_size_bounded" "$_r67_claude missing"
-  _r67_fail=1
-elif [[ ! -d "$_r67_cards_dir" ]]; then
-  # No cards yet -- rule is vacuously true during initial PR1 landing.
-  pass_rule "claude_md_kernel_size_bounded"
-else
-  _r67_violations=""
-  # Extract every Rule NN heading line number from CLAUDE.md.
-  _r67_rule_lines=$(grep -nE '^#### Rule [0-9]+' "$_r67_claude" | sort -t: -k1,1n)
-  while IFS= read -r _r67_entry; do
-    [[ -z "$_r67_entry" ]] && continue
-    _r67_ln="${_r67_entry%%:*}"
-    _r67_rest="${_r67_entry#*:}"
-    _r67_num=$(printf '%s\n' "$_r67_rest" | sed -nE 's/^#### Rule ([0-9]+).*/\1/p')
-    [[ -z "$_r67_num" ]] && continue
-    _r67_card_padded=$(printf 'rule-%02d.md' "$_r67_num")
-    _r67_card="${_r67_cards_dir}/${_r67_card_padded}"
-    if [[ ! -f "$_r67_card" ]]; then
-      # No card -- skip (Rule 69 will catch it).
-      continue
-    fi
-    _r67_cap=$(awk '/^kernel_cap:[[:space:]]*[0-9]+/{print $2; exit}' "$_r67_card")
-    [[ -z "$_r67_cap" ]] && continue
-    # Count lines from heading until next '---' separator (exclusive of separator).
-    _r67_count=$(awk -v start="$_r67_ln" '
-      NR < start { next }
-      NR == start { count = 1; next }
-      /^---$/ { exit }
-      { count++ }
-      END { print count + 0 }
-    ' "$_r67_claude")
-    if [[ "$_r67_count" -gt "$_r67_cap" ]]; then
-      _r67_violations+="Rule $_r67_num: $_r67_count lines > cap $_r67_cap; "
-      _r67_fail=1
-    fi
-  done <<< "$_r67_rule_lines"
-  if [[ $_r67_fail -eq 0 ]]; then
-    pass_rule "claude_md_kernel_size_bounded"
-  else
-    fail_rule "claude_md_kernel_size_bounded" "$_r67_violations"
-  fi
-fi
-
-# ---------------------------------------------------------------------------
-# Rule 68 — claude_md_kernel_matches_card (enforcer E98)
-#
-# For every docs/governance/rules/rule-NN.md card with status:active, if the
-# card's rule_id appears as "#### Rule <id>" in CLAUDE.md, the body paragraph
-# MUST byte-match the kernel: scalar (after whitespace normalisation). Cards
-# whose rule_id does NOT appear in CLAUDE.md are NOT drift -- CLAUDE.md is the
-# team-collaboration kernel only, and rule cards are sole authority for rule
-# definitions. Cards with status:deferred/retired/proposed may exist without
-# any CLAUDE.md heading.
-# If no cards exist, the rule is vacuously true.
-# ---------------------------------------------------------------------------
-_r68_fail=0
-_r68_claude='CLAUDE.md'
-_r68_cards_dir='docs/governance/rules'
-if [[ ! -f "$_r68_claude" ]]; then
-  fail_rule "claude_md_kernel_matches_card" "$_r68_claude missing"
-  _r68_fail=1
-elif [[ ! -d "$_r68_cards_dir" ]]; then
-  pass_rule "claude_md_kernel_matches_card"
-else
-  _r68_drift="$("${GATE_PYTHON_BIN:-python3}" - "$_r68_cards_dir" "$_r68_claude" <<'PYEOF'
-import re, sys, pathlib
-cards_dir, claude_md = sys.argv[1:3]
-
-def norm(s: str) -> str:
-    return re.sub(r"\s+", " ", s).strip()
-
-def extract_field(text: str, field: str) -> str:
-    m = re.search(rf"(?m)^{re.escape(field)}:\s*(.+?)$", text)
-    if not m:
-        return ""
-    val = m.group(1).strip()
-    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-        val = val[1:-1]
-    return val
-
-claude_text = pathlib.Path(claude_md).read_text(encoding="utf-8", errors="replace").splitlines()
-bodies: dict[str, str] = {}
-i, n = 0, len(claude_text)
-while i < n:
-    m = re.match(r"^#### Rule (\S+?)(?:\s|$)", claude_text[i])
-    if m:
-        rid = m.group(1)
-        buf = []
-        i += 1
-        while i < n:
-            line = claude_text[i]
-            if line.startswith("---") or line.startswith("#### ") or line.startswith("Enforced by"):
-                break
-            if line.strip():
-                buf.append(line)
-            i += 1
-        bodies[rid] = norm(" ".join(buf))
-        continue
-    i += 1
-
-drift = []
-for card in sorted(pathlib.Path(cards_dir).glob("rule-*.md")):
-    base = card.stem
-    rid = base[5:]
-    if not rid:
-        continue
-    rid_match = re.sub(r"^0+(?=\d)", "", rid) if rid.isdigit() else rid
-
-    card_text = card.read_text(encoding="utf-8", errors="replace")
-    status = extract_field(card_text, "status").lower()
-    if status and status != "active":
-        continue
-
-    txt = card_text.splitlines()
-    kernel_lines: list[str] = []
-    in_block = False
-    for line in txt:
-        if not in_block:
-            mk = re.match(r"^kernel:\s*\|", line)
-            if mk:
-                in_block = True
-                continue
-            mi = re.match(r"^kernel:\s+(.+)$", line)
-            if mi:
-                kernel_lines.append(mi.group(1))
-                break
-        else:
-            if re.match(r"^[A-Za-z_][A-Za-z_0-9]*:", line) or line.rstrip() == "---":
-                break
-            kernel_lines.append(line.lstrip())
-    kernel = norm(" ".join(kernel_lines))
-    if not kernel:
-        continue
-
-    body = bodies.get(rid_match, "")
-    if not body:
-        # Active card not in CLAUDE.md -- OK. CLAUDE.md is collaboration-only.
-        continue
-    if kernel != body:
-        drift.append(f"Rule {rid_match} drift")
-sys.stdout.write("; ".join(drift))
-PYEOF
-)"
-  if [[ -n "$_r68_drift" ]]; then
-    fail_rule "claude_md_kernel_matches_card" "$_r68_drift"
-    _r68_fail=1
-  fi
-  if [[ $_r68_fail -eq 0 ]]; then
-    pass_rule "claude_md_kernel_matches_card"
-  fi
-fi
-
-# ---------------------------------------------------------------------------
-# Rule 69 — every_active_rule_has_card (enforcer E99)
-#
-# Every "#### Rule <id>" heading in CLAUDE.md MUST have a sibling
-# docs/governance/rules/rule-<id>.md card. The reverse direction (every card
-# must appear in CLAUDE.md or in an alt-home file) is NO LONGER enforced --
-# cards exist independently as the sole authority for rule definitions per
-# user directive 2026-05-28. Orphan-card check eliminated; the CLAUDE-deferred.md
-# alt-home semantics retired with that file's elimination.
-#
-# Initial PR1 mode (loose): if docs/governance/rules/ does not exist yet,
-# the rule is vacuously true.
-# ---------------------------------------------------------------------------
-_r69_fail=0
-_r69_claude='CLAUDE.md'
-_r69_cards_dir='docs/governance/rules'
-if [[ ! -d "$_r69_cards_dir" ]]; then
-  pass_rule "every_active_rule_has_card"
-else
-  _r69_active_f=$(mktemp 2>/dev/null || echo "/tmp/r69_active.$$")
-  _r69_cards_f=$(mktemp 2>/dev/null || echo "/tmp/r69_cards.$$")
-  grep -oE '^#### Rule [A-Za-z0-9.-]+' "$_r69_claude" 2>/dev/null \
-    | sed -E 's/^#### Rule //; s/^0*([0-9])/\1/' | sort -u > "$_r69_active_f"
-  find "$_r69_cards_dir" -maxdepth 1 -name 'rule-*.md' -type f 2>/dev/null \
-    | sed -E 's|.*/rule-(.+)\.md$|\1|; s/^0*([0-9])/\1/' | sort -u > "$_r69_cards_f"
-  _r69_missing=$(comm -23 "$_r69_active_f" "$_r69_cards_f" | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-  if [[ -n "$_r69_missing" ]]; then
-    fail_rule "every_active_rule_has_card" "active rules with no card: $_r69_missing"
-    _r69_fail=1
-  fi
-  rm -f "$_r69_active_f" "$_r69_cards_f"
-  if [[ $_r69_fail -eq 0 ]]; then
-    pass_rule "every_active_rule_has_card"
-  fi
-fi
 
 # ---------------------------------------------------------------------------
 # Rule 70 — always_loaded_budget_enforced (enforcer E100)

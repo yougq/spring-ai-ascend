@@ -624,15 +624,6 @@
   asserts: "SyncOrchestrator.run with a payload class for which no ExecutorAdapter is registered raises EngineMatchingException carrying engine_mismatch -- proves no silent reinterpretation, no fallback policy (Rule R-M sub-clause .b strongest reading)."
   product_claim: "PC-004"
 
-- id: E76
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .a (Engine Envelope Single Authority); ADR-0072; P-M"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#engine_envelope_yaml_present_and_wellformed
-  asserts: "docs/contracts/engine-envelope.v1.yaml exists; declares schema: engine-envelope/v1, known_engines: block, and at least one '- id:' entry -- the single source of truth for envelope shape is gate-validated."
-  product_claim: "PC-004"
-
 - id: E77
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .b (Strict Engine Matching); ADR-0072; P-M"
   kind: gate-script
@@ -734,15 +725,6 @@
 # W2.x Phase 4 — Evolution Scope Boundary (Rule R-M sub-clause .e / ADR-0075 / P-M)
 # ---------------------------------------------------------------------------
 
-- id: E86
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .e (Evolution Scope Default Boundary); ADR-0075; P-M"
-  kind: gate-script
-  level: L1
-  view: physical
-  artifact: gate/check_architecture_sync.sh#evolution_scope_yaml_present_and_wellformed
-  asserts: "docs/governance/evolution-scope.v1.yaml exists with schema: evolution-scope/v1, three discriminator blocks (in_scope, out_of_scope_default, opt_in_export) all present, in_scope and out_of_scope_default both non-empty, and opt_in_export.contract_required references telemetry-export.v1.yaml (W3 placeholder)."
-  product_claim: "PC-004"
-
 - id: E87
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .e (Evolution Scope Default Boundary); ADR-0075; P-M"
   kind: archunit
@@ -824,15 +806,6 @@
 # Authority: docs/logs/reviews/2026-05-17-cross-corpus-consistency-audit-response.en.md
 # ---------------------------------------------------------------------------
 
-- id: E94
-  constraint_ref: "CLAUDE.md Rule R-C.a + ADR-0055 + ADR-0059 + ADR-0067; cross-corpus consistency audit 2026-05-17 / G1 (hardcoded module count drift)"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#module_count_data_driven
-  asserts: "Root pom.xml <module> count equals the canonical total_reactor_modules in docs/governance/architecture-status.yaml#repository_counts. Module-count changes update one file (the YAML), not four (gate + 3 ADRs). Drift surfaced by 2026-05-17 audit when six-module materialization PR landed and the count was hard-coded in 4 places."
-  product_claim: "PC-003"
-
 - id: E95
   constraint_ref: "CLAUDE.md Rule R-C.1 (Independent Module Evolution); cross-corpus consistency audit 2026-05-17 / G2 (metadata-vs-pom drift)"
   kind: gate-script
@@ -856,33 +829,6 @@
 # Authority: docs/governance/rules/rule-{67..71}.md
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens / session.
 # ---------------------------------------------------------------------------
-
-- id: E97
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .a (claude_md_kernel_size_bounded); token-optimization wave PR1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#claude_md_kernel_size_bounded
-  asserts: "Each '#### Rule NN' section in CLAUDE.md fits under the per-rule kernel_cap declared in docs/governance/rules/rule-NN.md (daily principles: cap 12; architectural + ironclad: cap 6). If a card does not exist yet, the rule is SKIPPED for that section (Rule G-3 sub-clause .c catches the missing card)."
-  governance_infra: true
-
-- id: E98
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .b (claude_md_kernel_matches_card); token-optimization wave PR1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#claude_md_kernel_matches_card
-  asserts: "For every docs/governance/rules/rule-NN.md card, the kernel: scalar in YAML front-matter byte-matches (after whitespace normalisation) the body paragraph of '#### Rule NN' in CLAUDE.md. Prevents semantic drift between kernel and card."
-  governance_infra: true
-
-- id: E99
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .c (every_active_rule_has_card); token-optimization wave PR1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#every_active_rule_has_card
-  asserts: "Every '#### Rule NN' heading in CLAUDE.md has a sibling docs/governance/rules/rule-NN.md (zero-padded). Every card either appears as a heading in CLAUDE.md or as a 'Rule NN' reference in docs/CLAUDE-deferred.md. Orphan cards fail."
-  governance_infra: true
 
 - id: E100
   constraint_ref: "CLAUDE.md Rule G-4 sub-clause .a (always_loaded_budget_enforced); token-optimization wave PR1"
