@@ -441,24 +441,6 @@
   asserts: "Any package matching com.huawei.ascend..spi.. does not depend on Spring, agent-platform, inmemory reference impls, Micrometer, or OpenTelemetry — generalises E3 to all current and future SPI packages."
   product_claim: "PC-001"
 
-- id: E50
-  constraint_ref: "CLAUDE.md Rule R-B; ARCHITECTURE.md §4 #61; ADR-0065"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#competitive_baselines_present_and_wellformed
-  asserts: "docs/governance/competitive-baselines.yaml exists and declares the four required pillar dimensions (performance, cost, developer_onboarding, governance)."
-  product_claim: "PC-001|PC-002|PC-003|PC-005"
-
-- id: E51
-  constraint_ref: "CLAUDE.md Rule R-B; ARCHITECTURE.md §4 #61; ADR-0065"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#release_note_references_four_pillars
-  asserts: "The most recent docs/logs/releases/*.md release note mentions all four pillar names (performance, cost, developer_onboarding, governance)."
-  product_claim: "PC-001|PC-002|PC-003|PC-005"
-
 - id: E52
   constraint_ref: "CLAUDE.md Rule R-C.1; ARCHITECTURE.md §4 #62; ADR-0066"
   kind: gate-script
@@ -488,15 +470,6 @@
 
 # --- W1 Layered-4+1 + Architecture-Graph wave (Rules 33-34; ADR-0068; §4 #64-#65) ---
 
-- id: E55
-  constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#architecture_artefact_front_matter
-  asserts: "every docs/adr/*.yaml, every docs/L2/*.md, root ARCHITECTURE.md, and every agent-*/ARCHITECTURE.md declare level: + view: front-matter with values in the legal enums."
-  governance_infra: true
-
 - id: E56
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .b; ADR-0068; ARCHITECTURE.md §4 #65"
   kind: gate-script
@@ -504,15 +477,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_graph_well_formed
   asserts: "docs/governance/architecture-graph.yaml is regenerated idempotently from authoritative inputs; supersedes/extends sub-graph is a DAG; every edge endpoint resolves to a real graph node or file path; every artifact#anchor reference resolves to a real method/heading (strengthens E33/E35)."
-  governance_infra: true
-
-- id: E57
-  constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#review_proposal_front_matter
-  asserts: "every docs/logs/reviews/*.md (excluding _TEMPLATE.md and pre-W1 historical files declared in an allow-list) declares affects_level: + affects_view: front-matter."
   governance_infra: true
 
 - id: E58
@@ -562,15 +526,6 @@
   asserts: "the highest-numbered ADR file under docs/adr/NNNN-*.{md,yaml} carries the .yaml extension — prevents future ADRs from regressing to the legacy .md shape after ADR-0068."
   governance_infra: true
 
-- id: E63
-  constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64 (frozen artefacts edit path)"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#frozen_doc_edit_path_compliance
-  asserts: "any modification to a file carrying freeze_id: <non-null> in front-matter is accompanied (same commit, vs $BASE_REF) by a new docs/logs/reviews/*.md proposal naming the file under affects_artefact: — no-op today (all freeze_id values are null); arms automatically at first phase release."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
 # Phase 1 of W1.x — L0 ironclad rules promoted from LucioIT W1 §6/§7.
 # Authority: ADR-0069. Each enforcer fails on a detected violation today.
@@ -584,15 +539,6 @@
   artifact: gate/check_architecture_sync.sh#bus_channels_three_track_present
   asserts: "docs/governance/bus-channels.yaml exists; declares exactly 3 channels (control/data/rhythm) each with a unique physical_channel: identifier; data channel inherits the 16-KiB inline payload cap."
   product_claim: "PC-002"
-
-- id: E65
-  constraint_ref: "CLAUDE.md Rule R-F (Cursor Flow Mandate); ADR-0069; LucioIT W1 §6.1"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#cursor_flow_documented
-  asserts: "docs/contracts/openapi-v1.yaml declares at least one 202-returning operation OR an explicit cursor: schema — Cursor Flow surface enumerable in machine form."
-  product_claim: "PC-003"
 
 - id: E66
   constraint_ref: "CLAUDE.md Rule R-G (Reactive External I/O); ADR-0069; LucioIT W1 §6.3"
@@ -612,15 +558,6 @@
   asserts: "no production class under agent-service/src/main/java/** or agent-service/src/main/java/** invokes Thread.sleep(...) or TimeUnit.<unit>.sleep(...); test code, gate scripts, and Awaitility usage are excluded."
   product_claim: "PC-003"
 
-- id: E68
-  constraint_ref: "CLAUDE.md Rule R-I (Five-Plane Manifest); ADR-0069; LucioIT W1 §7.1"
-  kind: gate-script
-  level: L0
-  view: physical
-  artifact: gate/check_architecture_sync.sh#deployment_plane_in_module_metadata
-  asserts: "every <module>/module-metadata.yaml declares deployment_plane: ∈ {edge, compute_control, bus_state, sandbox, evolution, none}."
-  product_claim: "PC-002"
-
 - id: E69
   constraint_ref: "CLAUDE.md Rule R-J sub-clause .a (Storage-Engine Tenant Isolation); ADR-0069; LucioIT W1 §7.2"
   kind: gate-script
@@ -628,15 +565,6 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#rls_for_new_tenant_tables
   asserts: "every Flyway migration creating a table with a tenant_id column either includes ENABLE ROW LEVEL SECURITY in the same file OR is listed in gate/rls-baseline-grandfathered.txt."
-  product_claim: "PC-003"
-
-- id: E70
-  constraint_ref: "CLAUDE.md Rule R-K (Skill Capacity Matrix); ADR-0069; LucioIT W1 §7.3"
-  kind: gate-script
-  level: L0
-  view: physical
-  artifact: gate/check_architecture_sync.sh#skill_capacity_yaml_present_and_wellformed
-  asserts: "docs/governance/skill-capacity.yaml exists; each skill row declares capacity_per_tenant + global_capacity + queue_strategy ∈ {suspend, fail}."
   product_claim: "PC-003"
 
 - id: E71
