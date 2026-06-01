@@ -2,7 +2,10 @@
 level: L0
 view: scenarios
 status: draft
-authority: "Derived from docs/reports/trustworthy-ai-code-architecture-design.zh.md"
+authority: "draft assessment lens; canonical authority remains ../../../architecture/"
+document_role: evidence
+source_of_truth: false
+canonical_authority: ../../../architecture/workspace.dsl
 ---
 
 # Trustworthy Architecture Corpus
@@ -45,8 +48,8 @@ not yet easy to review as one operating model.
 
 ## Relationship to Existing Authority
 
-- L0 authority remains `ARCHITECTURE.md`.
-- L1 authority remains each `agent-*/ARCHITECTURE.md`, `module-metadata.yaml`,
+- L0 authority remains `architecture/docs/L0/ARCHITECTURE.md`.
+- L1 authority remains `architecture/docs/L1/<module>/`, `module-metadata.yaml`,
   and `docs/dfx/<module>.yaml`.
 - Contract authority remains `docs/contracts/contract-catalog.md` and
   `docs/contracts/*.yaml`.

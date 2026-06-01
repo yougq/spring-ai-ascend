@@ -25,6 +25,9 @@ authority: "ADR-0147 (Structurizr Workspace Authority) + ADR-0149 (W0-W5 shipped
 | `generated/` | Generated DSL projections. | Generated only; never hand-edit. |
 | `profile/` and `views/` | Workspace validation profile and view fragments. | Internal architecture tooling. |
 
+Document role definitions and source-of-truth rules are maintained in
+[`DOCUMENT-IDENTITY.md`](DOCUMENT-IDENTITY.md).
+
 ## Human reading path
 
 1. **`architecture/README.md`** (this file) - understand the authority model,
