@@ -5,6 +5,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * W1 in-memory TaskQueue implementation backed by JDK primitives.
+ *
+ * <p>Future Redis/JDBC/Kafka backends should add another TaskQueue
+ * implementation instead of teaching this queue about Task state.
+ */
 public final class InMemoryTaskQueue<T> implements TaskQueue<T> {
 
     private final String queueId;

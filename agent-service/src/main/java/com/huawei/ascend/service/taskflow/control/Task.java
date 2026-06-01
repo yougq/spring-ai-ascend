@@ -4,6 +4,14 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * JavaBean-style L4 task snapshot.
+ *
+ * <p>The object can be stored in a queue, but queue code must remain
+ * payload-agnostic. State decisions belong to L4 task control APIs, while
+ * runtime adapters report state intent back through TaskControlClient mark*
+ * calls.
+ */
 public class Task {
 
     private String tenantId;
@@ -14,6 +22,11 @@ public class Task {
     private long revision;
     private WaitingReason waitingReason;
     private TaskFailureCode failureCode;
+    /*
+     * Small runtime/context detail may be kept inline. Large payloads should be
+     * compressed or referenced by higher-level code so the scheduling queue stays
+     * thin.
+     */
     private Object detail;
     private Instant createdAt;
     private Instant updatedAt;
