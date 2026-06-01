@@ -14,7 +14,7 @@
 product_claim: "PC-002|PC-004"
 
 schema: a2a-envelope/v1
-authority: ADR-0100
+authority: ADR-0016
 adoption_policy: contract_only  # NO SDK dep per Rejection 3
 status: design_only
 runtime_enforced: false

@@ -12,7 +12,7 @@ product_claim: "PC-001"
 schema: plan/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0126
+authority: ADR-0032
 promotion_trigger: "First production Planner implementation (W4 planner)"
 home_module: agent-execution-engine
 home_package: com.huawei.ascend.engine.planner.spi

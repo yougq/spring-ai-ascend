@@ -13,7 +13,7 @@
 product_claim: "PC-001"
 
 schema: agent-invoke-request/v1
-authority: ADR-0100
+authority: ADR-0138
 status: schema_shipped
 runtime_enforced: false
 promotion_trigger: First orchestrator path that constructs AgentInvokeRequest and invokes StatelessEngine.

@@ -28,7 +28,7 @@ product_claim: "PC-001|PC-004"
 schema: chat-advisor/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0132
+authority: ADR-0140
 promotion_trigger: "First production ChatAdvisor binding (W2 LLM gateway wave + Telemetry Vertical per ADR-0061 §7)"
 
 chat_advisor:

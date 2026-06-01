@@ -11,7 +11,7 @@
 product_claim: "PC-003"
 
 schema: backpressure-request/v1
-authority: ADR-0100
+authority: ADR-0141
 status: design_only
 runtime_enforced: false
 promotion_trigger: First BackpressureRequestEmitter implementation lands in agent-bus.

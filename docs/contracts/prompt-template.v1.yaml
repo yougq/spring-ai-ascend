@@ -12,7 +12,7 @@ product_claim: "PC-001|PC-004"
 schema: prompt-template/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0131
+authority: ADR-0138
 promotion_trigger: "First production PromptTemplate implementation (W2 prompt-rendering wave)"
 
 prompt_template:

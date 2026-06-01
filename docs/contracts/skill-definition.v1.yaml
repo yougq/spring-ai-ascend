@@ -14,7 +14,7 @@ product_claim: "PC-001|PC-004"
 schema: skill-definition/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0127
+authority: ADR-0038
 promotion_trigger: "First production SkillRegistry implementation (W2 skill registry)"
 
 skill_definition:

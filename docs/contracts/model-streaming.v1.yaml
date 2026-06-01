@@ -21,7 +21,7 @@ product_claim: "PC-003|PC-004"
 schema: model-streaming/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0129
+authority: ADR-0134
 promotion_trigger: "First production streaming ModelGateway override (W2 LLM gateway)"
 
 streaming_signature:

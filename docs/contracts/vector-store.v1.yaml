@@ -13,7 +13,7 @@ product_claim: "PC-001|PC-005"
 schema: vector-store/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0124
+authority: ADR-0051
 promotion_trigger: "First production VectorStore implementation (W3 RAG vertical)"
 
 vector_store:

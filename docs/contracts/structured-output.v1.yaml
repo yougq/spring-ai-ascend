@@ -15,7 +15,7 @@ product_claim: "PC-001|PC-004"
 schema: structured-output/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0130
+authority: ADR-0134
 promotion_trigger: "First production StructuredOutputConverter wired by the W2 LLM gateway wave"
 
 structured_output_converter:
