@@ -1,21 +1,21 @@
 package com.huawei.ascend.service.engine.dispatch;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
 import com.huawei.ascend.service.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.service.engine.event.EngineExecutionEvent;
 import com.huawei.ascend.service.engine.event.EngineFailedEvent;
 import com.huawei.ascend.service.engine.event.EngineOutputEvent;
-import com.huawei.ascend.service.engine.event.EngineStartedEvent;
 import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.engine.model.EngineOutput;
-import com.huawei.ascend.service.engine.spi.AccessLayerClient;
+import com.huawei.ascend.service.engine.port.AccessLayerClient;
+import com.huawei.ascend.service.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.service.engine.spi.AgentHandler;
-import com.huawei.ascend.service.engine.spi.TaskControlClient;
+import com.huawei.ascend.service.engine.spi.AgentResultAdapter;
+import com.huawei.ascend.service.engine.port.TaskControlClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +39,7 @@ class EngineDispatcherTest {
         AccessLayerClient access = mock(AccessLayerClient.class);
         AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         registry.register("echo-agent", new FakeAgentHandler(List.of(
-                new EngineStartedEvent("e1", scope(), Instant.EPOCH),
-                new EngineCompletedEvent("e2", scope(), Instant.EPOCH, new EngineOutput("hi", true)))));
+                Map.of("result_type", "answer", "output", "hi"))));
         EngineDispatcher dispatcher = new EngineDispatcher(registry, task, access);
 
         dispatcher.dispatch(cmd());
@@ -56,9 +55,8 @@ class EngineDispatcherTest {
         AccessLayerClient access = mock(AccessLayerClient.class);
         AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         registry.register("echo-agent", new FakeAgentHandler(List.of(
-                new EngineStartedEvent("e1", scope(), Instant.EPOCH),
-                new EngineOutputEvent("e2", scope(), Instant.EPOCH, new EngineOutput("partial", false)),
-                new EngineFailedEvent("e3", scope(), Instant.EPOCH, "ERR", "boom"))));
+                Map.of("result_type", "output", "output", "partial"),
+                Map.of("result_type", "error", "error_code", "ERR", "output", "boom"))));
         EngineDispatcher dispatcher = new EngineDispatcher(registry, task, access);
 
         dispatcher.dispatch(cmd());
@@ -68,11 +66,24 @@ class EngineDispatcherTest {
         verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineFailedEvent.class));
     }
 
-    static class FakeAgentHandler implements AgentHandler {
-        private final List<EngineExecutionEvent> events;
+    @Test
+    void registryRejectsDuplicateAndBlankAgentIds() {
+        DefaultAgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
+        registry.register("echo-agent", new FakeAgentHandler(List.of()));
 
-        FakeAgentHandler(List<EngineExecutionEvent> events) {
-            this.events = events;
+        assertThatThrownBy(() -> registry.register("echo-agent", new FakeAgentHandler(List.of())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already registered");
+        assertThatThrownBy(() -> registry.register(" ", new FakeAgentHandler(List.of())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("agentId");
+    }
+
+    static class FakeAgentHandler implements AgentHandler {
+        private final List<Object> rawResults;
+
+        FakeAgentHandler(List<Object> rawResults) {
+            this.rawResults = rawResults;
         }
 
         @Override
@@ -86,8 +97,27 @@ class EngineDispatcherTest {
         }
 
         @Override
-        public Stream<EngineExecutionEvent> execute(AgentExecutionContext context) {
-            return events.stream();
+        public Stream<?> execute(AgentExecutionContext context) {
+            return rawResults.stream();
+        }
+
+        @Override
+        public AgentResultAdapter resultAdapter() {
+            return raw -> raw.map(FakeAgentHandler::map);
+        }
+
+        private static AgentExecutionResult map(Object raw) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = (Map<String, Object>) raw;
+            String type = String.valueOf(result.get("result_type"));
+            String output = String.valueOf(result.get("output"));
+            if ("answer".equals(type)) {
+                return AgentExecutionResult.completed(output);
+            }
+            if ("output".equals(type)) {
+                return AgentExecutionResult.output(output);
+            }
+            return AgentExecutionResult.failed(String.valueOf(result.get("error_code")), output);
         }
     }
 }

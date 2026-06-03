@@ -2,32 +2,22 @@ package com.huawei.ascend.service.access.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.huawei.ascend.service.access.protocol.a2a.A2aAccessService;
-import com.huawei.ascend.service.access.protocol.a2a.A2aEgressAdapter;
-import com.huawei.ascend.service.access.protocol.a2a.A2aOutputRegistry;
-import com.huawei.ascend.service.access.protocol.a2a.A2aIngressAdapter;
-import com.huawei.ascend.service.access.protocol.a2a.A2aOutputSink;
-import com.huawei.ascend.service.access.protocol.a2a.DefaultA2aOutputSink;
-import com.huawei.ascend.service.access.egress.DefaultEgressQueueRegistry;
-import com.huawei.ascend.service.access.egress.DefaultNotificationPort;
-import com.huawei.ascend.service.access.egress.EgressAdapter;
-import com.huawei.ascend.service.access.egress.EgressDispatcher;
-import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
-import com.huawei.ascend.service.access.core.AccessGateway;
-import com.huawei.ascend.service.access.protocol.async.AsyncEgressAdapter;
-import com.huawei.ascend.service.access.protocol.async.AsyncIngressAdapter;
-import com.huawei.ascend.service.access.protocol.async.AsyncIngressPort;
-import com.huawei.ascend.service.access.protocol.async.AsyncOutputSink;
 import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.core.TaskHandler;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.InMemoryQueueFactory;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueueFactory;
-import com.huawei.ascend.service.access.temp.TemporaryL4TaskHandler;
-import java.util.Collection;
+import com.huawei.ascend.service.access.core.AccessSubmissionService;
+import com.huawei.ascend.service.access.protocol.a2a.A2aAccessProperties;
+import com.huawei.ascend.service.access.protocol.a2a.A2aWellKnownAgentCardController;
+import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputMapper;
+import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputRegistry;
+import com.huawei.ascend.service.access.protocol.a2a.egress.DefaultNotificationPort;
+import com.huawei.ascend.service.access.protocol.a2a.ingress.A2aJsonRpcController;
+import com.huawei.ascend.service.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
+import com.huawei.ascend.service.access.protocol.async.AsyncQueueIngressAdapter;
+import com.huawei.ascend.service.access.protocol.async.AsyncQueueIngressPort;
+import com.huawei.ascend.service.access.protocol.async.AsyncQueueReplySink;
+import com.huawei.ascend.service.access.protocol.async.DefaultAsyncQueueReplySink;
+import com.huawei.ascend.service.queue.QueueManager;
 import java.util.List;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Optional;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
@@ -35,22 +25,18 @@ import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.TransportProtocol;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(A2aAccessProperties.class)
 public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
     ObjectMapper accessObjectMapper() {
         return new ObjectMapper().registerModule(new JavaTimeModule());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(TaskHandler.class)
-    TaskHandler temporaryL4TaskHandler(NotificationPort notificationPort, Executor accessEgressExecutor) {
-        return new TemporaryL4TaskHandler(notificationPort, accessEgressExecutor);
     }
 
     @Bean
@@ -64,16 +50,22 @@ public class AccessLayerConfiguration {
         return AgentCard.builder()
                 .name("spring-ai-ascend-agent")
                 .description("A2A access layer for spring-ai-ascend agent service.")
-                .url("/a2a/")
+                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
                 .capabilities(capabilities)
                 .defaultInputModes(List.of("text"))
                 .defaultOutputModes(List.of("text", "artifact"))
                 .skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a/")))
+                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
                 .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    A2aWellKnownAgentCardController a2aWellKnownAgentCardController(AgentCard agentCard) {
+        return new A2aWellKnownAgentCardController(agentCard);
     }
 
     @Bean
@@ -83,81 +75,47 @@ public class AccessLayerConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(A2aOutputSink.class)
-    A2aOutputSink a2aOutputSink(A2aOutputRegistry outputRegistry) {
-        return new DefaultA2aOutputSink(outputRegistry);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(QueueFactory.class)
-    QueueFactory accessQueueFactory() {
-        return new InMemoryQueueFactory();
-    }
-
-    @Bean
     @ConditionalOnMissingBean
-    EgressQueueRegistry egressQueueRegistry(QueueFactory queueFactory) {
-        return new DefaultEgressQueueRegistry(queueFactory);
-    }
-
-    @Bean(destroyMethod = "shutdown")
-    @ConditionalOnMissingBean(name = "accessEgressExecutor")
-    ExecutorService accessEgressExecutor() {
-        return Executors.newCachedThreadPool();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    EgressDispatcher egressDispatcher(
-            EgressQueueRegistry egressQueueRegistry,
-            Collection<EgressAdapter> egressAdapters,
-            Executor accessEgressExecutor) {
-        return new EgressDispatcher(egressQueueRegistry, egressAdapters, accessEgressExecutor);
+    A2aOutputMapper a2aOutputMapper() {
+        return new A2aOutputMapper();
     }
 
     @Bean
     @ConditionalOnMissingBean(NotificationPort.class)
-    NotificationPort notificationPort(EgressQueueRegistry egressQueueRegistry) {
-        return new DefaultNotificationPort(egressQueueRegistry);
+    NotificationPort notificationPort(A2aOutputMapper outputMapper, A2aOutputRegistry outputRegistry) {
+        return new DefaultNotificationPort(outputMapper, outputRegistry);
     }
 
     @Bean
-    @ConditionalOnMissingBean(A2aEgressAdapter.class)
-    A2aEgressAdapter a2aEgressAdapter(A2aOutputSink outputSink) {
-        return new A2aEgressAdapter(outputSink);
-    }
-
-    @Bean
-    @ConditionalOnBean(AsyncOutputSink.class)
-    @ConditionalOnMissingBean(AsyncEgressAdapter.class)
-    AsyncEgressAdapter asyncEgressAdapter(AsyncOutputSink outputSink) {
-        return new AsyncEgressAdapter(outputSink);
-    }
-
-    @Bean
-    @ConditionalOnBean(TaskHandler.class)
     @ConditionalOnMissingBean
-    AccessGateway accessGateway(
-            TaskHandler taskHandler,
-            EgressQueueRegistry egressQueueRegistry,
-            EgressDispatcher egressDispatcher) {
-        return new AccessGateway(taskHandler, egressQueueRegistry, egressDispatcher);
+    A2aJsonRpcHandler a2aJsonRpcHandler(
+            AccessSubmissionService submissionService,
+            A2aOutputRegistry outputRegistry,
+            ObjectMapper objectMapper,
+            A2aAccessProperties properties) {
+        return new A2aJsonRpcHandler(submissionService, outputRegistry, objectMapper, properties);
     }
 
     @Bean
-    @ConditionalOnBean(AccessGateway.class)
-    @ConditionalOnMissingBean(A2aAccessService.class)
-    A2aAccessService a2aAccessService(AccessGateway accessGateway) {
-        return new A2aIngressAdapter(accessGateway);
+    @ConditionalOnMissingBean
+    A2aJsonRpcController a2aJsonRpcController(
+            A2aJsonRpcHandler handler,
+            A2aOutputRegistry outputRegistry) {
+        return new A2aJsonRpcController(handler, outputRegistry);
     }
 
     @Bean
-    @ConditionalOnBean(AccessGateway.class)
-    @ConditionalOnMissingBean(AsyncIngressPort.class)
-    AsyncIngressPort asyncIngressPort(AccessGateway accessGateway) {
-        return new AsyncIngressAdapter(accessGateway);
+    @ConditionalOnMissingBean(AsyncQueueIngressPort.class)
+    AsyncQueueIngressPort asyncQueueIngressPort(
+            A2aJsonRpcHandler handler,
+            Optional<AsyncQueueReplySink> replySink) {
+        return new AsyncQueueIngressAdapter(handler, replySink);
     }
 
+    @Bean
+    @ConditionalOnBean(QueueManager.class)
+    @ConditionalOnMissingBean(AsyncQueueReplySink.class)
+    AsyncQueueReplySink asyncQueueReplySink(QueueManager queueManager) {
+        return new DefaultAsyncQueueReplySink(queueManager);
+    }
 }
-
-
