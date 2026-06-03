@@ -1,0 +1,33 @@
+# Module metadata for agent-runtime.
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0066 + ADR-0072 (Engine Envelope + Strict Matching) + ADR-0088 (agent-runtime-core dissolution).
+# Enforced by gate rule module_metadata_present_and_complete.
+
+module: agent-runtime
+kind: domain             # platform | domain | starter | bom | sample
+version: 0.0.1-SNAPSHOT
+semver_compatibility: experimental
+description: "Run-owning runtime SDK developed against to drive Agent instances built on heterogeneous agent frameworks. Owns the execution engine (ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface in runtime.engine.spi; EngineRegistry / EngineEnvelope / InProcessEnginePort in runtime.engine.runtime; Planner in runtime.engine.planner.spi; reference executors in runtime.engine.exec), engine dispatch (runtime.dispatch), Run lifecycle, session, task-control, internal event queue, access (A2A), and the bootable runtime application. The neutral EnginePort / orchestration SPI it consumes lives in com.huawei.ascend.bus.spi.engine."
+architecture_doc: architecture/docs/L1/agent-runtime/README.md
+dfx_doc: docs/dfx/agent-runtime.yaml
+spi_packages:
+  # Engine-adapter SPI (ExecutorAdapter + GraphExecutor + AgentLoopExecutor +
+  # EngineHookSurface + EngineMatchingException) — the engine-internal plug-in
+  # surface. The neutral orchestration SPI it consumes (RunContext / ExecutorDefinition
+  # / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) was
+  # relocated to com.huawei.ascend.bus.spi.engine per ADR-0158.
+  - com.huawei.ascend.runtime.engine.spi
+  # Planner SPI (Planner + Plan + PlanStep + PlanningRequest + PlanningResult +
+  # BranchPoint + LoopAnnotation + ...) — engine-side plan generator per ADR-0126.
+  - com.huawei.ascend.runtime.engine.planner.spi
+  # Engine dispatch SPI (AgentHandler / AgentResultAdapter / EngineQueueGateway /
+  # EngineCommandConsumer / AccessLayerClient / TaskControlClient) — relocated from agent-service.
+  - com.huawei.ascend.runtime.dispatch.spi
+allowed_dependencies:
+  - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
+  - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)
+forbidden_dependencies:
+  - agent-service          # engine is upstream of agent-service; reverse direction forbidden
+  - agent-client
+  - agent-evolve
+deployment_plane: compute_control   # Rule R-I / P-I — engine runs in-process with the runtime kernel

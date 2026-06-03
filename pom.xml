@@ -36,7 +36,7 @@
     <module>agent-client</module>
     <module>agent-bus</module>
     <module>agent-middleware</module>
-    <module>agent-execution-engine</module>
+    <module>agent-runtime</module>
     <module>agent-evolve</module>
     <module>agent-service</module>
   </modules>
@@ -275,7 +275,7 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-execution-engine</artifactId>
+        <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -350,6 +350,10 @@
                 junit.jupiter.execution.parallel.config.fixed.max-pool-size=4
               </configurationParameters>
             </properties>
+            <!-- JDK 21 restricts dynamic Java-agent self-attachment; Mockito's inline
+                 mock maker (ByteBuddy agent) self-attaches at first mock and otherwise
+                 fails intermittently with 'Could not initialize plugin MockMaker'. -->
+            <argLine>-XX:+EnableDynamicAgentLoading</argLine>
           </configuration>
         </plugin>
         <!--
@@ -378,6 +382,11 @@
               workaround until RestAssured catches up.
             -->
             <argLine>-Djava.net.useSystemProxies=false</argLine>
+            <!-- Safety net: a deadlocked IT fork (Spring Boot 4 concurrent context-boot
+                 fragility described above) fails fast at 15 min instead of hanging for
+                 hours and stalling CI. CI also drops -T 1C so only one context boots at
+                 a time globally, which removes the cross-module boot race itself. -->
+            <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
           </configuration>
           <executions>
             <execution>
