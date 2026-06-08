@@ -1,4 +1,4 @@
-# Agent Runtime A2A LLM E2E Example
+﻿# Agent Runtime A2A LLM E2E Example
 
 ## Purpose
 
@@ -95,20 +95,19 @@ cross-region recovery, SLA/SLO dashboards, and error-budget governance.
 
 ## Quick start (config templates + scripts)
 
-Copy a template, fill it, and run — the env file is the only thing that differs
+Copy a template, fill it, and run; the env file is the only thing that differs
 between a local Ollama and a cloud OpenAI-compatible API; the command is identical:
 
 ```bash
 cp .env.ollama.example .env        # or .env.openai-compatible.example, then edit
 bash scripts/test-e2e.sh .env      # installs agent-runtime + runs the E2E suite
-# Windows: ./scripts/test-e2e.ps1 -EnvFile .env
 ```
 
 Templates (the `.env` you fill is gitignored; the `*.example` templates are tracked):
 
-- `.env.example` — every variable with inline docs.
-- `.env.ollama.example` — local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
-- `.env.openai-compatible.example` — a cloud OpenAI-compatible API (no real key committed).
+- `.env.example`: every variable with inline docs.
+- `.env.ollama.example`: local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
+- `.env.openai-compatible.example`: a cloud OpenAI-compatible API (no real key committed).
 
 > The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
 > `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
@@ -118,6 +117,21 @@ The route-grant signer uses `SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET` or
 `sample.gateway.route-grant-secret`. The checked-in default is for local sample
 execution only; set a non-default secret before demonstrating cross-runtime
 authorization flows to other teams.
+
+## Which Environment Values Are Effective?
+
+Maven and Spring Boot see the process environment at launch time. The effective
+values are:
+
+1. **Helper-script env file values**: `scripts/run-server.sh` and
+   `scripts/test-e2e.sh` load the env file argument, defaulting to `.env` in this
+   example directory. If the env file defines a variable, that value overrides a
+   same-name variable that was already exported in the shell running the script.
+2. **Explicit shell environment**: when you run Maven directly, or when a helper
+   script loads an env file that does not define a variable, Maven sees variables
+   already exported in the launching shell, for example `export SAA_SAMPLE_LLM_API_KEY=...`.
+3. **Spring Boot defaults**: if no environment variable is visible to the Java
+   process, the values in `src/main/resources/application.yaml` are used.
 
 ## Local LLM Defaults and Curl
 
