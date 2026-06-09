@@ -17,7 +17,8 @@ A2A JSON-RPC ingress
 
 ```text
 OpenJiuwen LLM tool_call
-  -> injected OpenJiuwen Tool
+  -> injected OpenJiuwen ToolCard
+  -> OpenJiuwenRemoteAgentInterruptRail
   -> RemoteAgentInvocationService
   -> RemoteInvocationControl
   -> parent A2A Task metadata + EventQueue
@@ -32,7 +33,7 @@ OpenJiuwen LLM tool_call
 2. A2A `EventQueue` 是 caller-visible 输出事实源，`tasks/get` 和 streaming 都从 A2A task/event 读取。
 3. control 仍是状态权威，但它的写入目标是 A2A `TaskStore` 和 `EventQueue`。
 4. access.a2a 只负责 A2A 协议 I/O，包括 inbound JSON-RPC、well-known AgentCard、outbound A2A client。
-5. OpenJiuwen 只通过 injected tool 调用 `RemoteAgentInvocationService`，A2A JSON-RPC client、`TaskStore` 和 `EventQueue` 都由 runtime 边界组件持有。
+5. OpenJiuwen 的远端 tool/rail bridge 只通过 `RemoteAgentInvocationService` 调用远端，A2A JSON-RPC client、`TaskStore` 和 `EventQueue` 都由 runtime 边界组件持有。
 6. 远端 terminal result 默认作为 tool result 回到 parent agent，不直接作为 parent caller-visible final output。
 7. 远端 `input-required` 必须投影为 parent A2A task 的 `TASK_STATE_INPUT_REQUIRED`，下一轮用户输入必须路由回同一个 remote task/context。
 
@@ -82,7 +83,7 @@ REJECTED
 
 ### RemoteAgentInvocationService
 
-`RemoteAgentInvocationService` 是被工具调用的中性服务接口。OpenJiuwen tool 只调用它，不依赖 A2A SDK。
+`RemoteAgentInvocationService` 是被 OpenJiuwen 远端 tool/rail bridge 调用的中性服务接口。OpenJiuwen 侧只调用它，不依赖 A2A SDK。
 
 职责：
 
@@ -143,7 +144,7 @@ interface RemoteAgentOutboundPort {
 
     RemoteTaskReference submit(RemoteInvocationHandle handle, RemoteAgentRequest request);
 
-    RemoteAgentResumeResult resumeInput(
+    RemoteAgentResult resumeInput(
             RemoteInvocationHandle handle,
             RemoteTaskReference remoteTask,
             List<Message> userInput);
@@ -163,6 +164,8 @@ interface RemoteAgentOutboundPort {
 - A2A remote terminal success -> `RemoteAgentResult.Completed`。
 - A2A remote terminal failure/protocol error -> `RemoteAgentResult.Failed`。
 
+`invoke(...)` 与 `resumeInput(...)` 复用同一个 `RemoteAgentResult` 结果模型。resume 后远端仍然只会进入 `InputRequired`、`Completed`、`Failed`、`Timeout`、`Cancelled` 等状态，不需要为 resume 再拆一套结果类型。
+
 实现形态：
 
 ```text
@@ -173,7 +176,7 @@ DefaultRemoteAgentInvocationService
         -> remote /a2a
 ```
 
-## Parent A2A Task Metadata
+## Parent A2A Task Metadata（父任务路由字段）
 
 远端调用关联放在 parent A2A `Task.metadata` 中。统一 key 由 `A2aTaskMetadataKeys` 定义：
 
@@ -264,7 +267,7 @@ A2aRemoteAgentCardFetcher
   -> RemoteAgentCatalog
   -> RemoteAgentToolProvider
   -> OpenJiuwenRemoteToolInstaller
-  -> OpenJiuwen ToolCard + Tool
+  -> OpenJiuwen ToolCard + placeholder Tool + OpenJiuwenRemoteAgentInterruptRail
 ```
 
 职责拆分：
@@ -274,8 +277,8 @@ A2aRemoteAgentCardFetcher
 | `A2aRemoteAgentCardFetcher` | `RemoteAgentEndpoint` | A2A `AgentCard` | 通过 HTTP 拉取远端 card，只属于 `access.a2a`。 |
 | `RemoteAgentCatalog` | 远端配置 + `AgentCard` | `RemoteAgentDescriptor` | 缓存远端 agent 描述，处理启停、TTL、健康状态。 |
 | `RemoteAgentToolProvider` | `RemoteAgentDescriptor` | `RemoteAgentToolSpec` | 把远端 agent 能力收敛为本地工具定义。 |
-| `OpenJiuwenRemoteToolAdapter` | `RemoteAgentToolSpec` | OpenJiuwen `ToolCard` + `Tool` | 只做 OpenJiuwen 类型适配。 |
-| `OpenJiuwenRemoteToolInstaller` | `BaseAgent` + `AgentExecutionContext` | 无 | 把工具注册到当前 OpenJiuwen agent 实例。 |
+| `OpenJiuwenRemoteToolAdapter` | `RemoteAgentToolSpec` | OpenJiuwen `ToolCard` + 占位 `Tool` | 只做 OpenJiuwen 类型适配；占位 tool 不负责 ReActAgent 主调用。 |
+| `OpenJiuwenRemoteToolInstaller` | `BaseAgent` + `AgentExecutionContext` | 无 | 注册 tool card、占位 tool 和远端 interrupt rail。 |
 
 v1 采用“一远端 runtime 一个 tool”，不把远端多个 skill 拆成多个本地 tool。这样可先保证路由、状态和 resume 闭环稳定：
 
@@ -304,7 +307,7 @@ final class OpenJiuwenAgentRuntimeHandlerAdapter extends OpenJiuwenAgentRuntimeH
     public Stream<?> execute(AgentExecutionContext context) {
         installRuntimeTools(agent, context);
         Object input = toOpenJiuwenInput(context);
-        return Stream.of(Runner.runAgent(agent, input, null, null));
+        return Stream.of(Runner.runAgent(agent, input, openJiuwenSession(context), null));
     }
 }
 ```
@@ -322,9 +325,12 @@ OpenJiuwen installer 负责两件事：
 ```text
 agent.getAbilityManager().add(tool.getCard())
 Runner.resourceMgr().addTool(tool, localAgentId)
+agent.registerRail(remoteAgentInterruptRail)
 ```
 
-注册时使用 `localAgentId = context.getScope().agentId()`，确保 OpenJiuwen 的 resource manager 能在当前 agent 执行时找到对应 tool。
+前两步让 LLM 能看到远端 tool card，并让 OpenJiuwen 的 resource manager 能解析到一个占位 tool；第三步是 ReActAgent v1 的主桥接点。远端 tool 名称必须注册到 `OpenJiuwenRemoteAgentInterruptRail`，由 rail 在真实 tool 执行前完成远端调用、中断或 synthetic tool result 注入。注册时使用 `localAgentId = context.getScope().agentId()`，确保 OpenJiuwen 的 resource manager 能在当前 agent 执行时找到对应 tool。
+
+OpenJiuwen 的会话连续性由 OpenJiuwen 自己维护。runtime adapter 必须保证每次进入同一个 parent task 时都使用稳定的 OpenJiuwen `sessionId` / `conversation_id`，推荐直接使用 parent A2A task id。`OpenJiuwenMessageAdapter` 已经把 `context.getScope().taskId()` 写入 `conversation_id`；如果显式传 `AgentSessionApi`，也必须使用同一个 id。runtime 不保存 OpenJiuwen checkpoint blob，也不保存 `checkpointRef`；OpenJiuwen 通过自己的 `Checkpointer` 和 `sessionId` 恢复 agent state。
 
 安装必须幂等。推荐幂等 key：
 
@@ -348,20 +354,22 @@ localAgentId + ":" + remoteAgentId + ":" + toolName + ":" + cardVersion
 
 ### 本地 LLM 选择远端 Tool
 
-当远端 tool 已注入后，OpenJiuwen 的本地 LLM 会在普通工具选择流程中看到该 tool card。调用链路：
+当远端 tool 已注入后，OpenJiuwen 的本地 LLM 会在普通工具选择流程中看到该 tool card。ReActAgent v1 的真实调用链路以 rail 为主，不让占位 tool 再独立发起一次远端调用：
 
 ```text
 OpenJiuwen LLM decides tool_call
   -> OpenJiuwen AbilityManager / Runner resolves Tool
-  -> OpenJiuwenRemoteTool.invoke(args, runtimeContext)
+  -> OpenJiuwenRemoteAgentInterruptRail.beforeToolCall(...)
+  -> OpenJiuwenRemoteAgentInterruptRail builds RemoteAgentInvocationIntent
   -> RemoteAgentInvocationService.invoke(intent)
   -> RemoteInvocationControl.open(...)
   -> RemoteAgentOutboundPort.invoke(...) or submit(...)
   -> A2aRemoteAgentOutboundAdapter
   -> remote runtime A2A message/send or message/stream
+  -> rail returns interrupt(...) or reject(...) synthetic tool result
 ```
 
-`OpenJiuwenRemoteTool.invoke(...)` 只构造中性 intent，不拼 A2A JSON-RPC：
+`OpenJiuwenRemoteTool` 在 ReActAgent v1 中只作为 ToolCard/占位 tool 或非 ReActAgent fallback 存在；如果 rail 已拦截该 tool name，它不能再在 `Tool.invoke(...)` 中再次调用远端。rail 构造的 intent 是中性模型，不拼 A2A JSON-RPC：
 
 ```java
 RemoteAgentInvocationIntent intent = new RemoteAgentInvocationIntent(
@@ -374,15 +382,15 @@ RemoteAgentInvocationIntent intent = new RemoteAgentInvocationIntent(
         policy);
 ```
 
-`RemoteAgentInvocationService` 是唯一编排点。它决定本次调用走 blocking short call 还是 background long call，并且先调用 `RemoteInvocationControl.open(...)`，让 control 感知 parent task 正在进入远端调用生命周期。
+`RemoteAgentInvocationService` 是唯一编排点。它决定本次调用走 blocking short call 还是 background long call，并且先调用 `RemoteInvocationControl.open(...)`，让 control 感知 parent task 正在进入远端调用生命周期。rail 只负责 OpenJiuwen 扩展点适配，不拥有远端状态，也不直接调用 A2A client。
 
 ### 短调用与长调用判断
 
-调用模式由 policy 决定，不让 OpenJiuwen tool 自己猜：
+调用模式由 policy 决定，不让 OpenJiuwen tool/rail bridge 自己猜：
 
 | 条件 | 模式 | 行为 |
 | --- | --- | --- |
-| `RemoteInvocationPolicy.mode = BLOCKING` | 短调用 | tool 阻塞等待远端 terminal 或 input-required。 |
+| `RemoteInvocationPolicy.mode = BLOCKING` | 短调用 | rail 在当前工具执行阶段等待远端 terminal 或 input-required。 |
 | `mode = BACKGROUND` | 长调用 | 提交远端 task 后，parent task 进入等待/工作态，watcher 后续推进。 |
 | 未显式配置 | 默认短调用 | 使用较短 timeout，超时后按 tool error 返回。 |
 | 远端 card 标记长耗时能力或本地策略命中 | 长调用 | 避免阻塞 OpenJiuwen 执行线程。 |
@@ -394,7 +402,7 @@ RemoteAgentInvocationIntent intent = new RemoteAgentInvocationIntent(
 | 维度 | `BLOCKING` | `BACKGROUND` |
 | --- | --- | --- |
 | access outbound | 调 `RemoteAgentOutboundPort.invoke(...)`，同步等待远端返回 terminal 或 input-required。 | 调 `RemoteAgentOutboundPort.submit(...)`，只等待远端 task/context 引用。 |
-| OpenJiuwen tool | 当前 tool 调用线程等待结果；结果直接返回 OpenJiuwen，或抛出 input-required signal。 | tool 不等待远端完成；进入等待/中断，后续由 watcher 恢复 parent agent。 |
+| OpenJiuwen bridge | rail 在当前工具执行阶段等待结果；completed/failed/timeout 通过 `reject(...)` 注入 synthetic tool result，input-required 通过 `interrupt(...)` 触发 OpenJiuwen 原生中断。 | rail 提交远端 task 后立即进入 waiting/interrupted，后续由 watcher 和同一 session resume 恢复 parent agent。 |
 | control 感知 | `open(...)` 后，结果回来再 `markSucceeded/markInputRequired/markFailed/markTimeout`。 | `open(...)` 后立即 `markSubmitted(...)`，保存 remote task/context。 |
 | parent task 状态 | 通常保持 `WORKING`，直到本地 agent 最终输出；远端 input-required 时变为 `INPUT_REQUIRED`。 | remote task 未完成期间保持 `WORKING` 或进入 runtime waiting metadata；远端 input-required 时变为 `INPUT_REQUIRED`。 |
 | 超时 | `blocking-timeout` 到期后转 tool error 或 fatal failed。 | `background-timeout` 到期后 watcher 标记 timeout，可传播 remote cancel。 |
@@ -498,13 +506,41 @@ parent status message 推荐保留远端可见内容，同时 metadata 保存 re
 
 对应的 `TaskStatusUpdateEvent` 也必须携带同一个 parent status message；streaming 调用方通过这个 event 立即看到远端要求用户补充的信息，`tasks/get` 调用方通过 parent task status 看到同样的信息。不能只把 message 存在 metadata 里，也不能只写日志或内部索引。
 
-OpenJiuwen adapter 需要有一个明确的等待桥接点。推荐定义 `RemoteAgentInputRequiredException` 或 `RemoteAgentInputRequiredSignal`，由 `OpenJiuwenRemoteTool.invoke(...)` 在收到远端 input-required 后触发；`OpenJiuwenAgentRuntimeHandlerAdapter` 捕获后返回：
+OpenJiuwen bridge 必须使用 OpenJiuwen 原生中断机制，而不是让 runtime 自己保存 agent checkpoint。推荐实现是把远端 tool name 注册到 `OpenJiuwenRemoteAgentInterruptRail`，由 rail 的 `beforeToolCall(...)` 在真实 tool 执行前完成远端调用和中断决策。这样中断发生在 OpenJiuwen `railedExecuteSingleToolCall(...)` 外层能识别的位置，不会被普通 tool invoke 异常包装成 tool error。
 
 ```java
-AgentExecutionResult.interrupted(InterruptType.WAITING_CHILD_AGENT, prompt)
+final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail {
+    @Override
+    protected InterruptDecision resolveInterrupt(
+            AgentCallbackContext ctx,
+            ToolCall toolCall,
+            Object userInput) {
+        RemoteAgentResult result = userInput == null
+                ? remoteInvocationService.invoke(toIntent(ctx, toolCall))
+                : remoteInvocationService.resumeRemoteInput(toResumeIntent(ctx, toolCall, userInput));
+
+        if (result instanceof RemoteAgentResult.InputRequired inputRequired) {
+            return interrupt(InterruptRequest.builder()
+                    .interruptId(toolCall.getId())
+                    .message(inputRequired.userVisibleText())
+                    .context(remoteContext(inputRequired, toolCall))
+                    .build());
+        }
+        if (result instanceof RemoteAgentResult.Completed completed) {
+            return reject(completed.asToolResultJson(), toolMessage(toolCall, completed));
+        }
+        return reject(result.asToolErrorJson(), toolMessage(toolCall, result));
+    }
+}
 ```
 
-这样 engine 仍通过现有 `INTERRUPTED` 结果进入 control，control 再以 parent A2A task metadata 判断下一轮输入要恢复远端，而不是恢复本地 agent。不要把远端 input-required 映射成 OpenJiuwen 普通 `answer`、普通 `error`，也不要映射成 `HUMAN_INPUT` 后丢失 remote task/context。
+OpenJiuwen `BaseInterruptRail` 会把 `InterruptResult` 转成 `ToolInterruptException`，`AbilityManager` 会把该异常收集为 interrupted tool execution，`ReActAgent` 会把它提交为 `result_type=interrupt` 和 `InteractionOutput`，OpenJiuwen checkpointer 负责按同一个 `sessionId` / `conversation_id` 保存现场。远端 completed/failed/timeout 则通过 `RejectResult` / `_skip_tool` 注入 synthetic tool result，跳过真实 tool 执行。
+
+这里不是“不抛中断异常”，而是“不在自定义 rail 里手写抛异常”。`OpenJiuwenRemoteAgentInterruptRail.resolveInterrupt(...)` 应返回 `interrupt(InterruptRequest)`；随后由 `BaseInterruptRail.applyDecision(...)` 在统一位置抛 `ToolInterruptException`。这样可以复用 OpenJiuwen 的 rail contract，保证 `RejectResult`、`_skip_tool`、`ToolCallInputs`、`ToolMessage` 和 interrupt exception 的处理路径一致。若在自定义 rail 或占位 `Tool.invoke(...)` 中直接抛异常，会把 runtime 代码耦合到 OpenJiuwen 内部异常细节；尤其在普通 `Tool.invoke(...)` 分支里，异常可能被包装成 tool error，导致 `ReActAgent` 不能按原生 interrupt/resume 流程保存现场。
+
+`OpenJiuwenRemoteTool` 不作为 ReActAgent v1 的主执行入口；若保留这个类名，应实现为占位 tool 或非 ReActAgent fallback。ReActAgent 路径中的远端调用和 input-required 中断触发必须收敛在 rail 或 OpenJiuwen 官方支持的等价中断扩展点。若直接在 `Tool.invoke(...)` 中抛异常，OpenJiuwen 的普通 tool 执行分支可能把它包装成 tool error。
+
+runtime 只保存 parent A2A task metadata 和 remote invocation index，不能保存 OpenJiuwen checkpoint blob，也不需要 `checkpointRef`。不要把远端 input-required 映射成 OpenJiuwen 普通 `answer`、普通 `error`，也不要由 runtime adapter 捕获后伪造自己的 checkpoint。正确的中断事实由 OpenJiuwen 的 `ToolInterruptException` / `InteractionOutput` / checkpointer 维护；runtime 的事实只到 A2A parent task 状态和路由 metadata。
 
 ### 用户下一轮输入分流
 
@@ -557,12 +593,13 @@ enqueueLocalAgentResume(task, userInput);
 remote completed after resume
   -> control stores tool result against remoteInvocationId/toolCallId
   -> clear runtime.waitingTarget / remote waiting metadata
-  -> enqueue parent agent resume with tool result
-  -> OpenJiuwen continues from previous tool_call
+  -> build OpenJiuwen InteractiveInput with toolCallId -> remote tool result
+  -> re-enter OpenJiuwen with the same sessionId / conversation_id
+  -> OpenJiuwen checkpointer restores the interrupted tool_call
   -> parent final answer becomes caller-visible output
 ```
 
-如果 OpenJiuwen 当前版本没有原生“从 tool_call 等待点恢复”的能力，v1 可退化为把远端 tool result 作为追加上下文重新调用本地 agent，但这个降级必须由 `engine.openjiuwen` 封装，不能泄漏到 access/control。
+如果 OpenJiuwen 当前版本的某个 agent 类型没有可用的 tool interrupt resume 能力，v1 可退化为把远端 tool result 作为追加上下文重新调用本地 agent，但这个降级必须由 `engine.openjiuwen` 封装，不能泄漏到 access/control。对 ReActAgent，优先使用同一个 `sessionId` / `conversation_id` 加 `InteractiveInput.update(toolCallId, remoteToolResult)` 恢复。
 
 用户可见输出只遵循两类：parent agent 最终输出；或者为了继续任务必须让用户输入的 parent `INPUT_REQUIRED`。
 
@@ -586,15 +623,16 @@ remote completed after resume
 4. 新增 `RemoteAgentInvocationService` 默认实现。
 5. 新增 `RemoteInvocationControl` command 模型与实现，写 parent A2A task metadata/event。
 6. 新增 `A2aRemoteAgentOutboundAdapter.invoke(...)`。
-7. 增加 OpenJiuwen tool injection hook、installer、agent-instance-to-handler adapter/factory。
+7. 增加 OpenJiuwen tool injection hook、installer、`OpenJiuwenRemoteAgentInterruptRail`、agent-instance-to-handler adapter/factory，确保 ReActAgent v1 由 rail-first 发起远端调用，占位 tool 不重复调用。
+8. 覆盖 blocking 下的 `COMPLETED`、`FAILED`、`TIMEOUT`、`INPUT_REQUIRED`：其中 `INPUT_REQUIRED` 必须写 parent task status message，并触发 OpenJiuwen 原生 interrupt。
 
-### Phase 3：Background + Input Required
+### Phase 3：Background + Remote Resume
 
 1. 新增 `RemoteInvocationIndex`。
 2. 实现 `submit(...)`、watcher、`markSubmitted(...)`。
-3. 实现 `markInputRequired(...)`。
+3. 将 watcher 收到的 `INPUT_REQUIRED` 复用 Phase 2 的 `markInputRequired(...)` 投影规则。
 4. 实现 A2A ingress resume 分流。
-5. 实现 `resumeRemoteInput(...)`。
+5. 实现 `resumeRemoteInput(...)`，结果仍映射为 `RemoteAgentResult`。
 6. 实现远端 completed 后 parent agent resume。
 7. 实现 parent cancel 到 remote cancel 的传播。
 
@@ -630,7 +668,6 @@ agent-runtime/
         RemoteAgentOutboundPort.java
         RemoteAgentRequest.java
         RemoteAgentResult.java
-        RemoteAgentResumeResult.java
         RemoteAgentToolProvider.java
         RemoteAgentToolSpec.java
         RemoteInvocationMode.java
@@ -643,6 +680,8 @@ agent-runtime/
       openjiuwen/
         OpenJiuwenAgentRuntimeHandlerAdapter.java
         OpenJiuwenAgentRuntimeHandlerFactory.java
+        OpenJiuwenInteractiveInputMapper.java
+        OpenJiuwenRemoteAgentInterruptRail.java
         OpenJiuwenRemoteToolAdapter.java
         OpenJiuwenRemoteToolInstaller.java
         NoopOpenJiuwenRemoteToolInstaller.java
@@ -672,8 +711,10 @@ agent-runtime/
 | `engine/service/DefaultRemoteAgentToolProvider.java` | remote descriptor 到 tool spec 的默认映射。 |
 | `engine/openjiuwen/OpenJiuwenAgentRuntimeHandlerAdapter.java` | 持有 `BaseAgent` 实例，把已存在的 OpenJiuwen agent 包装成 runtime `AgentRuntimeHandler`，并在 `Runner.runAgent(...)` 前调用工具注入 hook。 |
 | `engine/openjiuwen/OpenJiuwenAgentRuntimeHandlerFactory.java` | 对外提供 `BaseAgent/ReActAgent -> AgentRuntimeHandler` 的工厂入口，收敛 OpenJiuwen 接入方式。 |
-| `engine/openjiuwen/OpenJiuwenRemoteToolAdapter.java` | 将 `RemoteAgentToolSpec` 转成 OpenJiuwen `ToolCard` 与 `Tool`。 |
-| `engine/openjiuwen/OpenJiuwenRemoteToolInstaller.java` | 将远端工具安装到当前 OpenJiuwen `BaseAgent` 实例。 |
+| `engine/openjiuwen/OpenJiuwenInteractiveInputMapper.java` | 把远端 completed 的 tool result 转成 OpenJiuwen `InteractiveInput.update(toolCallId, result)`，并保证使用同一个 `sessionId` / `conversation_id` 恢复。 |
+| `engine/openjiuwen/OpenJiuwenRemoteAgentInterruptRail.java` | ReActAgent v1 的主桥接组件：拦截远端 tool name，调用 `RemoteAgentInvocationService`，对 input-required 返回 `interrupt(...)`，对 terminal/error 返回 `reject(...)` synthetic tool result；不保存状态，不替代 OpenJiuwen checkpointer。 |
+| `engine/openjiuwen/OpenJiuwenRemoteToolAdapter.java` | 将 `RemoteAgentToolSpec` 转成 OpenJiuwen `ToolCard` 与占位 `Tool`；占位 tool 只用于 resource 解析或非 ReActAgent fallback，不能在 rail 已处理后再次调用远端。 |
+| `engine/openjiuwen/OpenJiuwenRemoteToolInstaller.java` | 将远端工具安装到当前 OpenJiuwen `BaseAgent` 实例，并为 ReActAgent v1 注册必需的 `OpenJiuwenRemoteAgentInterruptRail`。 |
 | `engine/openjiuwen/NoopOpenJiuwenRemoteToolInstaller.java` | 未配置远端 agent 时的空实现，保持 OpenJiuwen handler 可独立运行。 |
 
 ## 需要修改的现有文件
@@ -719,7 +760,7 @@ agent-runtime/
 - A2A ingress 创建的 task 存在于 SDK `TaskStore`。
 - `tasks/get` 返回来自 `TaskStore/EventQueue` 的 A2A task。
 - engine output 写入 `TaskStatusUpdateEvent` / `TaskArtifactUpdateEvent`。
-- OpenJiuwen tool 只调用 `RemoteAgentInvocationService`。
+- OpenJiuwen remote tool/rail bridge 只调用 `RemoteAgentInvocationService`，不直接调用 A2A client，且不会由 rail 与占位 tool 双重触发远端调用。
 - remote tool call 会写 parent task metadata。
 - `TASK_STATE_INPUT_REQUIRED + runtime.waitingTarget=REMOTE_AGENT` 会路由到 `resumeRemoteInput(...)`。
 - remote terminal success 只作为 tool result，不直接写 parent completed。
