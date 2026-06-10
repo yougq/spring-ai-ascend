@@ -112,26 +112,18 @@ v1 使用这个宽松 schema 的原因是：A2A AgentCard 描述的是 agent 能
 
 注入必须发生在 handler 定义的执行生命周期里：拿到本次要执行的 OpenJiuwen agent 实例之后、调用 `Runner.runAgent(...)` 或 `agent.stream(...)` 之前。远端 card 发现成功只让 catalog 变为 `AVAILABLE`，不会主动把 tool 注入到某个长期全局 agent 上。
 
-`OpenJiuwenAgentRuntimeHandler` 增加一个 final hook：
-
-```java
-protected final void installRuntimeTools(Object openJiuwenAgent, AgentExecutionContext context) {
-    if (remoteToolInstaller != null) {
-        remoteToolInstaller.install(openJiuwenAgent, context);
-    }
-}
-```
-
-典型执行形态：
+当前 `OpenJiuwenAgentRuntimeHandler` 的真实执行顺序是：
 
 ```text
 OpenJiuwenAgentRuntimeHandler.execute(context)
   -> ReActAgent agent = buildAgent() 或 getAgentInstance(context)
-  -> installRails(agent, context)
+  -> installRails(agent, context)          // 来自 openJiuwenRails(context)
   -> installRuntimeTools(agent, context)
   -> Object input = toOpenJiuwenInput(context)
   -> Runner.runAgent(agent, input, openJiuwenConversationId(context), null)
 ```
+
+最新代码已经提供 `openJiuwenRails(context)` 扩展点，但它只能返回 `AgentRail`，不能完整安装远端 tool，因为远端注入还需要注册 `ToolCard` 和 placeholder `Tool`。因此 v1 需要在 `OpenJiuwenAgentRuntimeHandler` 中新增一个 runtime tool installer hook：`installRuntimeTools(BaseAgent agent, AgentExecutionContext context)`。该 hook 是本方案需要新增的能力，不是当前已有 API。
 
 `OpenJiuwenRemoteToolInstaller` 对同一个 agent 实例完成三件事：
 
@@ -141,7 +133,7 @@ Runner.resourceMgr().addTool(placeholder Tool, agent.getCard().getId())
 agent.registerRail(OpenJiuwenRemoteAgentInterruptRail)
 ```
 
-`installRuntimeTools(...)` 必须在现有 `installRails(...)` 之后、`toOpenJiuwenInput(...)` 和 `runOpenJiuwenAgent(...)` 之前执行。这样框架自有 runtime rail 先完成注册，remote rail 后注册，并且只拦截远端 tool name；非远端 tool call 必须放行给 OpenJiuwen 原有能力链。
+`installRuntimeTools(...)` 必须在现有 `installRails(...)` 之后、`toOpenJiuwenInput(...)` 和 `runOpenJiuwenAgent(...)` 之前执行。这样 `openJiuwenRails(context)` 返回的框架自有 rail 先完成注册，remote rail 后注册，并且只拦截远端 tool name；非远端 tool call 必须放行给 OpenJiuwen 原有能力链。
 
 `ToolCard` 让 LLM 看见远端能力；placeholder `Tool` 只满足 OpenJiuwen resource manager 的 tool name 解析；`OpenJiuwenRemoteAgentInterruptRail` 是真实远端调用入口。placeholder `Tool.invoke(...)` 和 `stream(...)` 不访问远端，rail 生效时它不会被执行；rail 未生效时它返回明确错误，避免静默伪成功。
 
@@ -218,6 +210,7 @@ RouteDecision.REMOTE_INVOCATION(remoteInvocation)
 
 ```text
 A2aAgentExecutor.execute(ctx, emitter)
+  -> 从 ctx.getTask() / TaskStore 读取 parent task
   -> 如果 parent task 是 remote waiting，进入 remote continuation branch
   -> 否则调用本地 handler.execute(USER_MESSAGE context)
   -> A2aAgentResultRouter 消费第一段本地 stream
@@ -231,6 +224,8 @@ A2aAgentExecutor.execute(ctx, emitter)
   -> A2aAgentResultRouter 消费第二段本地 stream
   -> 本地 final output 写 parent completed
 ```
+
+最新代码中的 `A2aAgentExecutor` 只持有一个 `AgentRuntimeHandler`，不具备读取 parent task metadata、调用远端服务或复用路由器的能力。落地时需要把 executor 构造参数扩展为：`AgentRuntimeHandler`、`TaskStore`、`A2aAgentResultRouter`、`A2aParentTaskProjector` factory、`RemoteAgentInvocationService` 和 `A2aRemoteOutcomeProjector`。`RuntimeAutoConfiguration` 当前已经提供 `InMemoryTaskStore` bean，executor 可通过配置装配拿到同一个 SDK task store。
 
 本地 stream 的生命周期和 `AgentEmitter` 生命周期不同。`REMOTE_INVOCATION` 后可以关闭第一段本地 stream，但只要 `A2aAgentExecutor.execute(...)` 方法尚未返回，当前 `AgentEmitter` 仍可用于 parent task 投影。SDK 不应因为第一段本地 stream 结束就把 parent task 视为终态；终态只由 router/projector 显式调用 `complete/fail/requiresInput/cancel` 决定。
 
@@ -274,6 +269,8 @@ isTerminal(parentTaskId)
 ```
 
 它不能只写 EventQueue。远端 progress 至少要让 streaming/subscription 可见；远端 input-required 必须同时更新 parent `Task.status`、`status.message`、`Task.metadata`；`tasks/get` 也必须能从 `TaskStore` 读到已经投影的状态和 metadata。v1 通过 SDK `AgentEmitter` 写这些状态和事件，不在 controller 层手写 A2A JSON-RPC response 或 SSE event。
+
+本地 A2A SDK 的 `TaskManager` 会把 `TaskStatusUpdateEvent.metadata` merge 进已有 `Task.metadata`。因此 projector 保存远端路由字段时应优先通过 SDK status event / emitter 能力写入 metadata，不绕过 SDK 状态机直接改内存对象。只有读取 route 时才从 `ctx.getTask()` 或同一个 `TaskStore` 取 parent task 快照。
 
 `requireInput(parentTaskId, message, metadata)` 必须采用 metadata merge 策略：保留已有 `runtime.remoteTaskId`、`runtime.remoteContextId`、`runtime.toolCallId`、`runtime.localConversationId` 等路由关键字段，只覆盖新的远端 prompt、时间戳、诊断字段和必要的 remote status。远端多轮 `INPUT_REQUIRED` 时，parent `status.message` 更新为最新远端提示，但路由 metadata 仍指向同一个 remote task/context。
 
@@ -344,7 +341,9 @@ runtime.toolCallId
 runtime.localConversationId
 ```
 
-下一轮用户输入仍进入本地 `/a2a`，继续委托 SDK `RequestHandler`。前置要求是：必须验证 A2A SDK 在 parent task 处于 `TASK_STATE_INPUT_REQUIRED` 时，下一轮 `SendMessage` / `SendStreamingMessage` 会再次调用同一个 `AgentExecutor.execute(ctx, emitter)`。验证通过后，v1 在 executor 内实现 remote continuation branch：
+下一轮用户输入仍进入本地 `/a2a`，继续委托 SDK `RequestHandler`。本地 A2A SDK 源码已经支持这条路径：当 `Message.taskId` 指向一个非终态已有 task 时，`DefaultRequestHandler` 会从 `TaskStore` 读取该 task，校验 `contextId`，把用户新消息追加到 task，并重新创建 `RequestContext` 调用 `AgentExecutor.execute(ctx, emitter)`。因此 v1 不需要 controller pre-dispatch router，也不新增 `A2aRemoteResumeRouter`。
+
+客户端下一轮请求必须携带 parent `taskId` 和匹配的 `contextId`。如果不携带 taskId，SDK 会创建新 parent task，runtime 将无法从旧 parent task metadata 中识别远端 continuation。
 
 ```text
 用户下一轮输入
@@ -384,10 +383,10 @@ runtime.localConversationId
 | --- | --- |
 | `agent-runtime/pom.xml` | 增加远端 A2A client 所需依赖，供 `engine.a2a.A2aRemoteAgentOutboundAdapter` 使用。 |
 | `boot/A2aJsonRpcController.java` | 保持委托 SDK `RequestHandler`；`CancelTask` 继续进入 SDK cancel，并由 executor/projector best-effort 传播远端取消。 |
-| `boot/RuntimeAutoConfiguration.java` | 绑定 `agent-runtime.remote-agents[].url`，装配 catalog、invocation service、A2A outbound adapter、OpenJiuwen installer；创建 `A2aAgentExecutor` 时注入 result router / remote invocation 相关依赖。remote properties 先作为本配置类内部 record/bean 方法，不单独建文件。 |
-| `engine/a2a/A2aAgentExecutor.java` | 移除内部 `results.forEach(...)` 和私有 `route(...)` 主逻辑，改为创建 emitter-backed `A2aParentTaskProjector` 后委托 `A2aAgentResultRouter`；在 `execute(...)` 开头增加 remote continuation branch，识别 `TASK_STATE_INPUT_REQUIRED + runtime.waitingTarget=REMOTE_AGENT` 后直接 resume 远端，不进入 OpenJiuwen 本地推理。 |
+| `boot/RuntimeAutoConfiguration.java` | 绑定 `agent-runtime.remote-agents[].url`，装配 catalog、invocation service、A2A outbound adapter、OpenJiuwen installer；创建 `A2aAgentExecutor` 时注入 SDK `TaskStore`、result router、parent task projector factory、remote invocation service 和 outcome projector。remote properties 先作为本配置类内部 record/bean 方法，不单独建文件。 |
+| `engine/a2a/A2aAgentExecutor.java` | 移除内部 `results.forEach(...)` 和私有 `route(...)` 主逻辑，改为创建 emitter-backed `A2aParentTaskProjector` 后委托 `A2aAgentResultRouter`；在 `execute(...)` 开头通过 `ctx.getTask()` / `TaskStore` 读取 parent task metadata，识别 `TASK_STATE_INPUT_REQUIRED + runtime.waitingTarget=REMOTE_AGENT` 后直接 resume 远端，不进入 OpenJiuwen 本地推理。 |
 | `engine/spi/AgentExecutionResult.java` | 新增 `REMOTE_INVOCATION` 类型、factory、`remoteInvocation()` getter 和嵌套 `RemoteInvocation` record；保留 `INTERRUPTED(prompt)` 给普通本地 input-required。 |
-| `engine/openjiuwen/OpenJiuwenAgentRuntimeHandler.java` | 增加可选 `OpenJiuwenRemoteToolInstaller` 字段和 `installRuntimeTools(...)` hook；执行顺序为 `createOpenJiuwenAgent` -> `installRails` -> `installRuntimeTools` -> `toOpenJiuwenInput` -> `runOpenJiuwenAgent`。 |
+| `engine/openjiuwen/OpenJiuwenAgentRuntimeHandler.java` | 在现有 `openJiuwenRails(context)` 之外增加可选 `OpenJiuwenRemoteToolInstaller` 字段和 `installRuntimeTools(...)` hook；执行顺序为 `createOpenJiuwenAgent` -> `installRails` -> `installRuntimeTools` -> `toOpenJiuwenInput` -> `runOpenJiuwenAgent`。 |
 | `engine/openjiuwen/OpenJiuwenStreamAdapter.java` | 识别 OpenJiuwen remote interrupt marker，构造 `AgentExecutionResult.remoteInvocation(remoteInvocation)`；普通 interrupt 仍映射为 `interrupted(prompt)`。 |
 | `engine/openjiuwen/OpenJiuwenMessageAdapter.java` | 支持 `inputType=REMOTE_RESUME`；从 variables 读取 `runtime.remoteToolCallId` 和 `runtime.remoteToolResult`，转换为 `InteractiveInput.update(...)`。 |
 | `engine/AgentExecutionContext.java` | 继续用 `variables` 传递 remote resume 信息；新增输入类型约定 `REMOTE_RESUME` 和相关 key 常量。 |
