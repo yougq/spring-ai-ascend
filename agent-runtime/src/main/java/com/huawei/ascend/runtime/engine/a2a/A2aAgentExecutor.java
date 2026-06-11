@@ -304,7 +304,12 @@ public final class A2aAgentExecutor implements AgentExecutor {
         return Messages.text(ctx.getMessage());
     }
 
-    private static String metadata(RequestContext ctx, String key, String fallback) {
+    /**
+     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}
+     * so the remote-resume re-entry resolves the same tenant as the first local segment.
+     * For the tenant key the transport-authenticated tenant outranks client-declared metadata.
+     */
+    static String metadata(RequestContext ctx, String key, String fallback) {
         if (TENANT_STATE_KEY.equals(key)) {
             Object transportTenant = ctx.getCallContext() == null
                     ? null : ctx.getCallContext().getState().get(TENANT_STATE_KEY);

@@ -67,7 +67,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration configuration = new RuntimeAutoConfiguration();
+            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
+                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -121,7 +122,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration configuration = new RuntimeAutoConfiguration();
+            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
+                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -142,7 +144,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
 
     @Test
     void remoteAgentPropertiesExposeConfiguredUrls() {
-        RuntimeAutoConfiguration configuration = new RuntimeAutoConfiguration();
+        RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
+                new RuntimeAutoConfiguration.RemoteAgentConfiguration();
         RemoteAgentProperties properties =
                 new RemoteAgentProperties(List.of(
                         new RemoteAgentProperties.RemoteAgent("http://localhost:18081")));

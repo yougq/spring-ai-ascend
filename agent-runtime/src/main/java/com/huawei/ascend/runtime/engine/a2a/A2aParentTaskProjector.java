@@ -113,11 +113,11 @@ final class A2aParentTaskProjector {
                 AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
-                        metadata(requestContext, "tenantId", "default"),
-                        metadata(requestContext, "userId", "system"),
+                        A2aAgentExecutor.metadata(requestContext, A2aAgentExecutor.TENANT_STATE_KEY, "default"),
+                        A2aAgentExecutor.metadata(requestContext, "userId", "system"),
                         invocation.parentContextId(),
                         invocation.parentTaskId(),
-                        metadata(requestContext, "agentId", handlerAgentId)),
+                        A2aAgentExecutor.metadata(requestContext, "agentId", handlerAgentId)),
                 AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME,
                 List.of(),
                 variables,
@@ -144,15 +144,6 @@ final class A2aParentTaskProjector {
                 throw new IllegalArgumentException("REMOTE_ROUTE_METADATA_MISSING: " + key);
             }
         }
-    }
-
-    private static String metadata(RequestContext ctx, String key, String fallback) {
-        if ("tenantId".equals(key) && hasText(ctx.getTenant())) {
-            return ctx.getTenant();
-        }
-        Map<String, Object> md = ctx.getMetadata();
-        Object value = md == null ? null : md.get(key);
-        return hasText(value) ? String.valueOf(value) : fallback;
     }
 
     private static String safeText(String text) {

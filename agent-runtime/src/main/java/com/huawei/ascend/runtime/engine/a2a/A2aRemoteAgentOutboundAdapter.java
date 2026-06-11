@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,9 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
 
     private final Function<String, ClientTransport> transportFactory;
     private final Duration streamTimeout;
+    // One transport (and its underlying HTTP client) per remote agent, reused across
+    // invocations and input-required continuations instead of rebuilt on every call.
+    private final Map<String, ClientTransport> transportCache = new ConcurrentHashMap<>();
 
     public A2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
         this(remoteAgentId -> {
@@ -55,7 +59,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
             RemoteAgentInvocationService.RemoteAgentRequest request,
             Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
-        ClientTransport transport = transportFactory.apply(request.remoteAgentId());
+        ClientTransport transport = transport(request.remoteAgentId());
         if (transport == null) {
             return List.of(RemoteAgentInvocationService.RemoteAgentResult.failed(
                     "No A2A transport for remote agent " + request.remoteAgentId()));
@@ -107,10 +111,19 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (reference == null || reference.remoteAgentId() == null || reference.remoteTaskId() == null) {
             return;
         }
-        ClientTransport transport = transportFactory.apply(reference.remoteAgentId());
+        ClientTransport transport = transport(reference.remoteAgentId());
         if (transport != null) {
             transport.cancelTask(CancelTaskParams.builder().id(reference.remoteTaskId()).build(), null);
         }
+    }
+
+    private ClientTransport transport(String remoteAgentId) {
+        if (remoteAgentId == null) {
+            return null;
+        }
+        // computeIfAbsent does not store a null result, so an endpoint that is not yet
+        // resolvable stays uncached and is retried on the next call.
+        return transportCache.computeIfAbsent(remoteAgentId, transportFactory::apply);
     }
 
     private static MessageSendParams toParams(RemoteAgentInvocationService.RemoteAgentRequest request) {

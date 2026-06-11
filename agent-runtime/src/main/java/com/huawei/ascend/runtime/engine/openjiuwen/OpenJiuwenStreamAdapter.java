@@ -44,7 +44,6 @@ public class OpenJiuwenStreamAdapter {
         return AgentExecutionResult.failed(ERROR_CODE, output);
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> remoteContext(Map<String, Object> result) {
         if (isRemoteInvocation(result)) {
             return result;
@@ -58,12 +57,6 @@ public class OpenJiuwenStreamAdapter {
             Object value = payload instanceof InteractionOutput interactionOutput ? interactionOutput.getValue() : payload;
             if (value instanceof InterruptRequest request && isRemoteInvocation(request.getContext())) {
                 return request.getContext();
-            }
-            if (value instanceof Map<?, ?> map) {
-                Map<String, Object> context = (Map<String, Object>) map.get("context");
-                if (isRemoteInvocation(context)) {
-                    return context;
-                }
             }
         }
         return Map.of();

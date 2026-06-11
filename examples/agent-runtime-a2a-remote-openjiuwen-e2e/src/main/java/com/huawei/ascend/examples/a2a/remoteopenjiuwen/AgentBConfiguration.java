@@ -2,7 +2,6 @@ package com.huawei.ascend.examples.a2a.remoteopenjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.openjiuwen.core.session.Session;
@@ -11,7 +10,6 @@ import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
@@ -55,7 +53,11 @@ public class AgentBConfiguration {
     }
 
     private static final class AgentBHandler extends OpenJiuwenAgentRuntimeHandler {
-        private AgentExecutionContext currentContext;
+        // Remembers which remote conversations have already produced their first turn,
+        // so the second turn on the same remote task/context completes regardless of the
+        // user's follow-up wording. The demo no longer keys completion off magic keywords.
+        private static final java.util.Set<String> STARTED_CONVERSATIONS =
+                java.util.concurrent.ConcurrentHashMap.newKeySet();
 
         private AgentBHandler() {
             super(AGENT_ID);
@@ -63,7 +65,6 @@ public class AgentBConfiguration {
 
         @Override
         protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
-            currentContext = context;
             DemoAgent agent = new DemoAgent();
             agent.configure(ReActAgentConfig.builder().maxIterations(2).build());
             return agent;
@@ -71,21 +72,18 @@ public class AgentBConfiguration {
 
         @Override
         protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
-            String text = currentContext.getMessages().isEmpty()
-                    ? ""
-                    : OpenJiuwenMessageAdapter.messageText(currentContext.getMessages().getLast());
-            String normalized = text.toLowerCase(Locale.ROOT);
-            if (normalized.contains("follow") || normalized.contains("继续") || normalized.contains("next")) {
+            boolean firstTurn = STARTED_CONVERSATIONS.add(conversationId);
+            if (firstTurn) {
                 return Stream.of(
-                        AgentExecutionResult.output("AgentB second stream message 1: received user follow-up. "),
-                        AgentExecutionResult.output("AgentB second stream message 2: preparing final answer. "),
-                        AgentExecutionResult.completed("AgentB completed after the second user input."));
+                        AgentExecutionResult.output("AgentB first stream message 1: remote task started. "),
+                        AgentExecutionResult.output("AgentB first stream message 2: more detail is needed. "),
+                        AgentExecutionResult.interrupted("AgentB needs one more user input. "
+                                + "Send a follow-up message with the same parent taskId/contextId."));
             }
             return Stream.of(
-                    AgentExecutionResult.output("AgentB first stream message 1: remote task started. "),
-                    AgentExecutionResult.output("AgentB first stream message 2: more detail is needed. "),
-                    AgentExecutionResult.interrupted("AgentB needs one more user input. "
-                            + "Send a follow-up message with the same parent taskId/contextId."));
+                    AgentExecutionResult.output("AgentB second stream message 1: received user follow-up. "),
+                    AgentExecutionResult.output("AgentB second stream message 2: preparing final answer. "),
+                    AgentExecutionResult.completed("AgentB completed after the second user input."));
         }
     }
 
