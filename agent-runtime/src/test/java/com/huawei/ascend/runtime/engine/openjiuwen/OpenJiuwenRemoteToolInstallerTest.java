@@ -3,7 +3,7 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import static org.assertj.core.api.Assertions.assertThat;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.interaction.InteractiveInput;
