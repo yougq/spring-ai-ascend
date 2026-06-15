@@ -39,6 +39,25 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+
+    <!-- A2A SDK client: the A2aWorker bridges the engine to real A2A agents.
+         Pinned to the version present locally (parent doesn't manage a2a-sdk). -->
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-spec</artifactId>
+      <version>1.0.0.CR1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+      <version>1.0.0.CR1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-http-client</artifactId>
+      <version>1.0.0.CR1</version>
+      <scope>runtime</scope>
+    </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
