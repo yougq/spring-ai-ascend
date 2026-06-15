@@ -39,6 +39,12 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+    <!-- Collaboration metrics (collab.tasks / collab.events / collab.task.latency).
+         No-op when no MeterRegistry is bound (e.g. the standalone eval). -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
 
     <!-- A2A SDK client: the A2aWorker bridges the engine to real A2A agents.
          Pinned to the version present locally (parent doesn't manage a2a-sdk). -->

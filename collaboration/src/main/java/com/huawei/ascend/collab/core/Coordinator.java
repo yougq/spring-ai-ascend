@@ -7,6 +7,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.LongSupplier;
 
 /**
@@ -23,7 +26,9 @@ import java.util.function.LongSupplier;
  *   <li><b>校验 validation</b> — a {@link ResultValidator} gates COMPLETED results.</li>
  * </ul>
  *
- * Deterministic given the workers and a clock — which is what makes the eval harness reproducible.
+ * {@link #run} executes tasks sequentially; {@link #runConcurrent} distributes them in parallel
+ * (each task is independent — its own token lineage, attempts, and event log). Deterministic given
+ * the workers and a clock, which is what makes the eval harness reproducible.
  */
 public final class Coordinator {
 
@@ -33,29 +38,77 @@ public final class Coordinator {
     private final ResultValidator validator;
     private final String tenantId;
     private final LongSupplier clock;
+    private final CollaborationObserver observer;
     private final Map<String, Integer> roundRobin = new LinkedHashMap<>();
 
-    public Coordinator(List<Worker> workers, ResultValidator validator, String tenantId, LongSupplier clock) {
+    public Coordinator(List<Worker> workers, ResultValidator validator, String tenantId,
+            LongSupplier clock, CollaborationObserver observer) {
         this.workers = List.copyOf(workers);
         this.validator = validator == null ? ResultValidator.nonEmptyOutput() : validator;
         this.tenantId = tenantId == null ? "default" : tenantId;
         this.clock = clock == null ? System::currentTimeMillis : clock;
+        this.observer = observer == null ? CollaborationObserver.NOOP : observer;
+    }
+
+    public Coordinator(List<Worker> workers, ResultValidator validator, String tenantId, LongSupplier clock) {
+        this(workers, validator, tenantId, clock, CollaborationObserver.NOOP);
     }
 
     public Coordinator(List<Worker> workers) {
         this(workers, ResultValidator.nonEmptyOutput(), "default", System::currentTimeMillis);
     }
 
+    /** Sequential distribution. */
     public CollaborationResult run(List<SubTask> tasks) {
         Map<String, Status> outcomes = new LinkedHashMap<>();
         List<CoordinationEvent> log = new ArrayList<>();
         for (SubTask task : tasks) {
-            outcomes.put(task.id(), runOne(task, log));
+            TaskRun run = runOne(task);
+            outcomes.put(task.id(), run.status());
+            log.addAll(run.events());
         }
         return new CollaborationResult(outcomes, log);
     }
 
-    private Status runOne(SubTask task, List<CoordinationEvent> log) {
+    /** Concurrent distribution: tasks run in parallel (capped at {@code parallelism}). */
+    public CollaborationResult runConcurrent(List<SubTask> tasks, int parallelism) {
+        int pool = Math.max(1, Math.min(parallelism, Math.max(1, tasks.size())));
+        ExecutorService exec = Executors.newFixedThreadPool(pool);
+        try {
+            Map<String, Future<TaskRun>> futures = new LinkedHashMap<>();
+            for (SubTask task : tasks) {
+                futures.put(task.id(), exec.submit(() -> runOne(task)));
+            }
+            Map<String, Status> outcomes = new LinkedHashMap<>();
+            List<CoordinationEvent> log = new ArrayList<>();
+            futures.forEach((taskId, future) -> {
+                try {
+                    TaskRun run = future.get();
+                    outcomes.put(taskId, run.status());
+                    log.addAll(run.events());
+                } catch (Exception e) {
+                    outcomes.put(taskId, Status.FAILED);
+                    log.add(CoordinationEvent.of(taskId, Type.FAIL, null, "coordinator error: " + e.getMessage()));
+                }
+            });
+            return new CollaborationResult(outcomes, log);
+        } finally {
+            exec.shutdownNow();
+        }
+    }
+
+    private record TaskRun(Status status, List<CoordinationEvent> events) {
+    }
+
+    private TaskRun runOne(SubTask task) {
+        List<CoordinationEvent> log = new ArrayList<>();
+        long started = now();
+        Status status = drive(task, log);
+        observer.onTaskCompleted(task.id(), status, now() - started);
+        return new TaskRun(status, log);
+    }
+
+    private Status drive(SubTask task, List<CoordinationEvent> log) {
         UUID idemKey = UUID.randomUUID();      // stable across this task's redispatch lineage
         String capability = task.capability();
         String lastWorkerId = null;
@@ -65,12 +118,11 @@ public final class Coordinator {
         while (true) {
             Worker w = pick(capability, lastWorkerId);
             if (w == null) {
-                log.add(CoordinationEvent.of(task.id(), Type.NO_WORKER, null, "capability=" + capability));
+                add(log, task.id(), Type.NO_WORKER, null, "capability=" + capability);
                 return Status.FAILED;
             }
             TaskToken token = TaskToken.issue(task.id(), capability, w.id(), tenantId, idemKey, task.ttlMs(), now());
-            log.add(CoordinationEvent.of(task.id(), Type.DISPATCH, w.id(),
-                    "capability=" + capability + " token=" + token.tokenId()));
+            add(log, task.id(), Type.DISPATCH, w.id(), "capability=" + capability + " token=" + token.tokenId());
             lastWorkerId = w.id();
 
             WorkResult r;
@@ -80,56 +132,55 @@ public final class Coordinator {
                 r = WorkResult.failed(task.id(), token, w.id(), "exception: " + e.getClass().getSimpleName());
             }
 
-            // 令牌响应校验: the worker must present back a valid, matching token.
             if (!tokenMatches(token, r.echoedToken())) {
-                log.add(CoordinationEvent.of(task.id(), Type.TOKEN_REJECT, w.id(), "invalid/absent token echo"));
+                add(log, task.id(), Type.TOKEN_REJECT, w.id(), "invalid/absent token echo");
                 if (++attempts < task.maxAttempts()) {
-                    log.add(CoordinationEvent.of(task.id(), Type.RECLAIM, w.id(), "after token reject"));
+                    add(log, task.id(), Type.RECLAIM, w.id(), "after token reject");
                     continue;
                 }
-                log.add(CoordinationEvent.of(task.id(), Type.FAIL, w.id(), "token rejected, attempts exhausted"));
+                add(log, task.id(), Type.FAIL, w.id(), "token rejected, attempts exhausted");
                 return Status.REJECTED;
             }
 
             switch (r.status()) {
                 case COMPLETED -> {
                     if (validator.isValid(task, r)) {
-                        log.add(CoordinationEvent.of(task.id(), Type.VALIDATE_OK, w.id(), null));
-                        log.add(CoordinationEvent.of(task.id(), Type.COMPLETE, w.id(), null));
+                        add(log, task.id(), Type.VALIDATE_OK, w.id(), null);
+                        add(log, task.id(), Type.COMPLETE, w.id(), null);
                         return Status.COMPLETED;
                     }
-                    log.add(CoordinationEvent.of(task.id(), Type.VALIDATE_FAIL, w.id(), "result rejected by validator"));
+                    add(log, task.id(), Type.VALIDATE_FAIL, w.id(), "result rejected by validator");
                     if (++attempts < task.maxAttempts()) {
-                        log.add(CoordinationEvent.of(task.id(), Type.RECLAIM, w.id(), "after validate fail"));
+                        add(log, task.id(), Type.RECLAIM, w.id(), "after validate fail");
                         continue;
                     }
-                    log.add(CoordinationEvent.of(task.id(), Type.FAIL, w.id(), "validation failed, attempts exhausted"));
+                    add(log, task.id(), Type.FAIL, w.id(), "validation failed, attempts exhausted");
                     return Status.FAILED;
                 }
                 case HANDED_OVER -> {
                     if (r.handoverCapability() == null || ++handovers > HANDOVER_CAP) {
-                        log.add(CoordinationEvent.of(task.id(), Type.FAIL, w.id(), "hand-over loop or no target"));
+                        add(log, task.id(), Type.FAIL, w.id(), "hand-over loop or no target");
                         return Status.FAILED;
                     }
-                    log.add(CoordinationEvent.of(task.id(), Type.HANDOVER, w.id(), "to=" + r.handoverCapability()));
+                    add(log, task.id(), Type.HANDOVER, w.id(), "to=" + r.handoverCapability());
                     capability = r.handoverCapability();
-                    lastWorkerId = null; // allow any worker of the new capability
+                    lastWorkerId = null;
                 }
                 case TIMEOUT, FAILED -> {
-                    log.add(CoordinationEvent.of(task.id(), Type.RECLAIM, w.id(),
-                            r.status() + (r.detail() == null ? "" : ": " + r.detail())));
+                    add(log, task.id(), Type.RECLAIM, w.id(),
+                            r.status() + (r.detail() == null ? "" : ": " + r.detail()));
                     if (++attempts < task.maxAttempts()) {
                         continue;
                     }
-                    log.add(CoordinationEvent.of(task.id(), Type.FAIL, w.id(), "attempts exhausted"));
+                    add(log, task.id(), Type.FAIL, w.id(), "attempts exhausted");
                     return r.status();
                 }
                 case INPUT_REQUIRED -> {
-                    log.add(CoordinationEvent.of(task.id(), Type.INPUT_REQUIRED, w.id(), "needs human input"));
+                    add(log, task.id(), Type.INPUT_REQUIRED, w.id(), "needs human input");
                     return Status.INPUT_REQUIRED;
                 }
                 case REJECTED -> {
-                    log.add(CoordinationEvent.of(task.id(), Type.FAIL, w.id(), "worker reported rejected"));
+                    add(log, task.id(), Type.FAIL, w.id(), "worker reported rejected");
                     return Status.REJECTED;
                 }
                 default -> {
@@ -139,8 +190,18 @@ public final class Coordinator {
         }
     }
 
+    private void add(List<CoordinationEvent> log, String taskId, Type type, String workerId, String detail) {
+        CoordinationEvent e = CoordinationEvent.of(taskId, type, workerId, detail);
+        log.add(e);
+        observer.onEvent(e);
+    }
+
+    private void emit(List<CoordinationEvent> log, Void ignored) {
+        // events are emitted to the observer inline in add(); placeholder kept intentionally minimal
+    }
+
     /** Round-robin among workers handling the capability, preferring one != excludeId for retry diversity. */
-    private Worker pick(String capability, String excludeId) {
+    private synchronized Worker pick(String capability, String excludeId) {
         List<Worker> candidates = new ArrayList<>();
         for (Worker w : workers) {
             if (w.handles(capability)) {
