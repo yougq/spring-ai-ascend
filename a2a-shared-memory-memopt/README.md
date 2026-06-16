@@ -28,12 +28,25 @@ recall(...)  ──▶  POST /v1/memory/search   (signature query → distilled 
 reinforce(.) ──▶  POST /v1/memory/save     (re-confirm a recurring lesson)
 ```
 
+## Enable it (deploy bundle)
+
+To turn MemOpt on under A2A shared memory without building or seeing its source, use
+the bundle in [`deploy/`](deploy/) — it **pulls** the closed image and wires it up:
+
+```bash
+cd a2a-shared-memory-memopt/deploy
+cp .env.example .env      # set MEMOPT_IMAGE (your registry tag) + GATEWAY_*
+./enable-memopt.sh        # MemOpt engine + NATS up; prints the Java wiring snippet
+```
+
+Full guide: [`deploy/ENABLE_MEMOPT.md`](deploy/ENABLE_MEMOPT.md).
+
 ## Delivery model: image, not source
 
 MemOpt's cognitive engine is the IP, so it ships as a **closed Docker image**; the
-customer never receives the Python source. Build/run is documented in the MemOpt
-repo (`docs/DEPLOY_CONTAINER.md`): a `Dockerfile` + `docker-compose.yml` bring up
-the engine container + its NATS bus, exposing only `/v1/memory/*`.
+customer never receives the Python source. The image is built from the MemOpt repo
+(`docs/DEPLOY_CONTAINER.md` there: `Dockerfile` + `docker-compose.yml`) and pushed to
+a registry; this repo only **pulls and runs** it (see `deploy/` above).
 
 This Java module is the **client** to that image:
 
