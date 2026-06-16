@@ -140,6 +140,10 @@ public final class A2aWorker implements Worker {
             Message message = Message.builder()
                     .role(Message.Role.ROLE_USER)
                     .messageId(UUID.randomUUID().toString())
+                    // A2A-native correlation: a stable contextId per task (constant across the
+                    // task's redispatch lineage) lets the remote runtime and any tracing tie the
+                    // remote execution back to this coordinator task.
+                    .contextId(token.taskId())
                     .parts(List.<Part<?>>of(new TextPart(task.payload() == null ? "" : task.payload())))
                     .metadata(meta)
                     .build();

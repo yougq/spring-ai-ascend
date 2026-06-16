@@ -55,6 +55,18 @@
 
 **真实 A2A 往返 e2e(`src/test`)**:`DeterministicEchoAgent` 是一个**不调 LLM** 的极简 A2A agent(直接返回 echo + 完成),`A2aWorkerE2eTest` 启它在随机端口、让 `A2aWorker` 真打它一次(直连 + 经 `Coordinator`),确定性、无需 API key、CI 安全。整套 a2a-sdk 对齐到 `1.0.0.Final`(与平台一致),`logback-test.xml` 覆盖 agent-runtime 的 logstash appender。**2 个 e2e 全绿**,既验证了 engine→A2A 桥,也是一次真实 A2A 往返评测。
 
+## 可观测性(`obs/`)
+
+`CollaborationObserver` 是协调器的观测钩子(每个决策 + 每次任务完成都回调),默认 no-op、不耦合后端。三个实现可自由组合:
+
+| 实现 | 作用 |
+|---|---|
+| `MicrometerCollaborationObserver` | 指标:`collab.tasks{outcome}` / `collab.task.latency` / `collab.events{type}`(绑定 MeterRegistry 时出现在 `/actuator/prometheus`,评测里 no-op) |
+| `Slf4jCollaborationObserver` | 结构化 ops 轨迹:每个决策/完成打到 `collab` logger,带 MDC(`taskId`/`event`/`outcome`/`workerId`/`durationMs`),日志管道可按 taskId 索引关联;MDC 在 finally 清理,**不泄漏**到工作线程 |
+| `CompositeCollaborationObserver` | 把多个 observer 扇出(指标 + 日志同时上);**单个 delegate 抛错被吞掉**,不拖垮其他 observer 或协作本身 |
+
+**跨线关联**:`A2aWorker` 把任务 id 设到 A2A 消息的 `contextId`(整条重派血缘内稳定),让远端运行时与链路追踪能把远端执行回连到本端任务;令牌(tokenId/idempotencyKey)随 `Message.metadata` 走。
+
 ## 构建
 
 ```bash
