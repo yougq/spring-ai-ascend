@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * Kit facade for the A2A run-scoped shared blackboard — the open consumption
- * surface (ADR-0162). Bound to one collaboration; agents read each other's
+ * surface (the a2a-shared-memory design decision). Bound to one collaboration; agents read each other's
  * conclusions and write their own. Thin by design: ownership, append-log and
  * isolation live in the {@link SharedMemoryStore} (the engine), not here.
  *

@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 /**
- * Structured, dual-mode ops trail on the {@code a2amem} logger (ADR-0162 /
+ * Structured, dual-mode ops trail on the {@code a2amem} logger (the a2a-shared-memory design decision /
  * personal observability bar). One instrumentation surface, intensity switched by
  * the {@code verbose} flag + logger level — not two code paths:
  *

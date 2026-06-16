@@ -4,7 +4,7 @@ A2A 协作里 agent 之间**共享记忆**的中间件,`kit` 范式(门面 + 可
 
 - **不依赖 MemOpt**:MemOpt 是另一个 kit 中间件,以后作为后端之一插在 `SharedMemoryStore` SPI 之后。
 - **不依赖协作引擎(279)**:通过单向 hook SPI 集成;依赖方向 协作 → 本模块。
-- 权威设计见 [ADR-0162](../docs/adr/0162-a2a-shared-memory.yaml)。
+- 权威设计见 [the design decision](../docs/logs/reviews/2026-06-16-a2a-shared-memory-design-decision.yaml)。
 
 ## 两层结构
 

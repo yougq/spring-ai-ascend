@@ -4,7 +4,7 @@ import com.huawei.ascend.a2a.memory.experience.CollaborationSignature;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryKit;
 
 /**
- * The run-end integration seam (ADR-0162): the collaboration coordinator calls
+ * The run-end integration seam (the a2a-shared-memory design decision): the collaboration coordinator calls
  * this when a collaboration finishes, so A2A shared-memory can distill the run's blackboard
  * into cross-run experience. The dependency points <b>collaboration &rarr;
  * A2A shared-memory</b> (A2A shared-memory never imports the collaboration module), which is what keeps

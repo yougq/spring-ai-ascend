@@ -1,6 +1,14 @@
-id: ADR-0162
+# NOTE: ADR-STYLE DESIGN-DECISION RECORD under docs/logs/ (gate-excluded), NOT a
+# governed ADR yet, and deliberately NOT numbered 0162 — that number is RETIRED
+# (an overturned remote-agent-discovery ADR; see architecture-status.yaml).
+# a2a-shared-memory is an orphan middleware module not yet in the
+# architecture-of-record, so this decision stays out of the governed docs/adr/
+# corpus until promoted with the full integration under "governance_followups"
+# (graph registration, dfx, contract-catalog, baseline adr_count, next free
+# number = 0163).
+id: A2A-SHARED-MEMORY-DESIGN-DECISION
 title: "A2A multi-agent shared memory — two-layer (run-scoped blackboard + cross-run experience) as an independent middleware kit on the A2A contextId, with a pluggable backend SPI (MemOpt engine optional, later)"
-status: proposed
+status: design-record (pending governed-ADR promotion)
 date: 2026-06-16
 level: L1
 view: development

@@ -3,7 +3,7 @@ package com.huawei.ascend.a2a.memory.experience;
 import java.util.List;
 
 /**
- * Backend SPI for the cross-run experience layer (ADR-0162). Keyed by
+ * Backend SPI for the cross-run experience layer (the a2a-shared-memory design decision). Keyed by
  * {@code tenantId + signature}; never by user. In-process
  * {@link InMemoryExperienceStore} for eval; gRPC client to the closed engine in
  * production. Implementations MUST isolate per tenant. Lessons arrive already

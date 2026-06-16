@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.function.LongSupplier;
 
 /**
- * Kit facade for cross-run collaboration experience (ADR-0162). Bound to one
+ * Kit facade for cross-run collaboration experience (the a2a-shared-memory design decision). Bound to one
  * tenant. {@link #record} <b>always redacts PII</b> before persisting — the
  * locked privacy guard for the tenant-shared experience layer. {@link #recall}
  * returns the most relevant past lessons for a signature.

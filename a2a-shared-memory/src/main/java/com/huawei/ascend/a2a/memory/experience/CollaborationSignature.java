@@ -5,7 +5,7 @@ import java.util.TreeSet;
 
 /**
  * What a collaboration "looks like", used to index and recall cross-run
- * experience (ADR-0162: signature = capability-set + task-type). Recall ranks
+ * experience (the a2a-shared-memory design decision: signature = capability-set + task-type). Recall ranks
  * stored experience by {@link #similarity(CollaborationSignature)} so a new
  * collaboration retrieves lessons from past collaborations of the same shape.
  *

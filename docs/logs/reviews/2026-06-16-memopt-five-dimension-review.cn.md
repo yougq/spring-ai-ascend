@@ -1,6 +1,6 @@
 # A2A 共享记忆(#283)五维复检(鲁棒 / 弹性 / 韧性 / Ops·性能 / 经济)
 
-日期:2026-06-16 · 范围:**`a2a-shared-memory/`** 模块(run 内黑板 + 跨 run 经验 + A2A contextId 绑定)· 关联 [ADR-0162](../../adr/0162-a2a-shared-memory.yaml) · **38/38 测试通过**
+日期:2026-06-16 · 范围:**`a2a-shared-memory/`** 模块(run 内黑板 + 跨 run 经验 + A2A contextId 绑定)· 关联 [the a2a-shared-memory design decision](2026-06-16-a2a-shared-memory-design-decision.yaml) · **38/38 测试通过**
 
 > MemOpt(闭源记忆引擎 + per-user)**不在 #283**,另开任务做;它将作为 `SharedMemoryStore` 的可插拔后端接入。本复检只覆盖 #283 的 A2A 共享记忆中间件 kit。
 >
@@ -28,4 +28,4 @@
 - 经验"任务签名"调优;两个真实 runtime 互打的 over-wire e2e(本期单 runtime 多调用 + 多 agent 角色已验证语义)。
 
 ## 结论
-对照之前提的需求,#283 的 A2A 共享记忆中间件在五维上**逐条有已测落地**(含此前缺的:反压、幂等、真实 over-the-wire e2e、经验跨 run 生命周期、经济性量化、性能基准),**38/38 通过**。仍未做的是**闭源引擎部署形态(MemOpt,另任务)** 与**真分布式扩展**,边界清晰、已在 ADR-0162 标注——不再把它们混进 #283。
+对照之前提的需求,#283 的 A2A 共享记忆中间件在五维上**逐条有已测落地**(含此前缺的:反压、幂等、真实 over-the-wire e2e、经验跨 run 生命周期、经济性量化、性能基准),**38/38 通过**。仍未做的是**闭源引擎部署形态(MemOpt,另任务)** 与**真分布式扩展**,边界清晰、已在 the a2a-shared-memory design decision 标注——不再把它们混进 #283。

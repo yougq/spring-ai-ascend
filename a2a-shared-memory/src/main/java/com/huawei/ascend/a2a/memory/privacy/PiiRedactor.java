@@ -2,7 +2,7 @@ package com.huawei.ascend.a2a.memory.privacy;
 
 /**
  * Strips user PII from text before it is written to the tenant-shared, cross-run
- * experience layer (ADR-0162: experience is PII-stripped). The kit ships a
+ * experience layer (the a2a-shared-memory design decision: experience is PII-stripped). The kit ships a
  * best-effort {@link DefaultPiiRedactor}; the closed engine may substitute a
  * stronger detector. This is a hard requirement, not advisory — experience is
  * shared across a tenant's collaborations and must never carry a customer's
