@@ -1,28 +1,31 @@
-# A2A 共享记忆 五维复检(鲁棒 / 弹性 / 韧性 / Ops·性能 / 经济)
+# A2A 共享记忆(#283)五维复检(鲁棒 / 弹性 / 韧性 / Ops·性能 / 经济)
 
-> **已重构(2026-06-16)**:两层 kit —— **`a2a-shared-memory/`**(A2A 共享记忆中间件 kit)+ **`memopt/`**(独立记忆引擎 kit:per-user 长期记忆 + 作为前者 `SharedMemoryStore` 的可插拔后端)。MemOpt 闭源引擎的**部署形态**(form C 容器 + gRPC + mTLS)仍在后端阶段。
+日期:2026-06-16 · 范围:**`a2a-shared-memory/`** 模块(run 内黑板 + 跨 run 经验 + A2A contextId 绑定)· 关联 [ADR-0162](../../adr/0162-a2a-shared-memory.yaml) · **38/38 测试通过**
 
-日期:2026-06-16 · 范围:`a2a-shared-memory/`(run 内黑板 + 跨 run 经验 + A2A contextId 绑定)+ `memopt/`(per-user 引擎 + A2A 共享后端)· 关联 [ADR-0162](../../adr/0162-a2a-shared-memory.yaml)
-
-诚实前提:两模块均为 **in-process Java 形态**(可离线评测);企业级持久/语义/远程(MemOpt 闭源引擎,form C + gRPC)是**部署形态**、本期未做。下面把**已落地并测过**的 与 **属部署侧、本期未做** 的分开标。**整体 38 测试通过(a2a-shared-memory 27 + memopt 11)。**
-
-MemOpt 补充(per-user 引擎 + 后端):鲁棒 = fail-open + 熔断(`resilience/Circuit`,`UserMemoryKitTest` 验证 fail-open/严格/熔断短路);弹性 = scope 分区单存储(非每用户一表);经济 = 批内 dedupe + per-scope 上限淘汰;后端角色 = `MemOptSharedMemoryStore` 实现 a2a kit 的 `SharedMemoryStore` SPI,a2a kit 不改一行跑在 MemOpt 上(`MemOptBackedSharedMemoryTest`:共享/所有权/观测)。SPI 让"进程内 delegate → gRPC 闭源引擎"的替换对 agent 不可见。
+> MemOpt(闭源记忆引擎 + per-user)**不在 #283**,另开任务做;它将作为 `SharedMemoryStore` 的可插拔后端接入。本复检只覆盖 #283 的 A2A 共享记忆中间件 kit。
+>
+> 诚实前提:本模块是 **in-process Java 形态**(可离线评测、可对真实 A2A 线 e2e)。真分布式/分片、闭源引擎远程持久(form C 容器 + gRPC)是后端/部署阶段,明确标注未做、非缺陷。
 
 ## 记分卡
 
-| 维度 | 状态 | 证据 / 缺口 |
+| 维度 | 状态 | 证据(测试)/ 边界 |
 |---|---|---|
-| 鲁棒性 | ✅ kit 侧 | **所有权违例 surface 不吞**(权限错≠基础设施错,`OwnershipViolationException` + 观测 degraded);后端错也 surface 交协作引擎 reclaim;append-log 不静默覆盖、并发原子。测试:`SharedMemoryKitTest` / `SharedMemoryConcurrencyTest` / `A2aSharedMemoryTest`。 |
-| 弹性(上千 A2A) | ✅ 已验证 | 单一**按协作分区**的共享存储(非每协作一结构),`ConcurrentHashMap` 水平可扩。测试:`ScaleTest` — **2000 个并发协作**,零跨协作泄漏、零竞争错误。后端侧:真正水平扩容由后端(redis / MemOpt 容器)承担。 |
-| 韧性(反压) | ✅ 客户端负反馈 / ⚠️ 引擎侧 | 客户端**熔断 = 负反馈**:引擎过载→调用失败→开路→自动甩载、不再打后端(`Circuit`)。重负载下的**服务端限流/有界队列属引擎侧**(形态 C 容器),本期未做,已在 ADR/设计稿标注。 |
-| Ops 可观测 + 性能 | ✅ 双模可观测 / ✅ 瘦 kit 高性能 | `obs/`:`MemoryObserver` + `Slf4jMemoryObserver`(双模:routine→DEBUG,verbose→INFO,问题→WARN,`isEnabled` 守卫、MDC finally 清理)+ `MicrometerMemoryObserver`(`a2amem.ops`/`a2amem.op.latency`/`a2amem.degraded`,低基数)+ 组合(故障隔离)。已接入 `SharedMemoryKit`。测试:`MemoryObserverTest`(级别路由/扇出/隔离/MDC/kit 接入)。性能:kit 是瘦客户端,黑板操作 O(1);热路径无昂贵构造(守卫)。真正高性能持久/召回在后端。 |
-| 经济性(token 节省) | ✅ 架构杠杆 | ① A2A 共享黑板让 agent **不重复发现**结论(交接带知识,不只带 payload);② 跨 run **经验召回**避免重推有效模式(省 LLM 轮次);③ 经验蒸馏 + PII 脱敏只留要点、不堆原文;④ 进一步语义压缩由后端做。这些都减少冗余 LLM 调用 = 省 token。 |
+| **鲁棒性** | ✅ | 所有权违例 surface 不吞(`OwnershipViolationException` + 观测 degraded);后端错 surface 交协作 reclaim;append-log 不静默覆盖、并发原子;**幂等写**(重试同 idempotencyKey 不重复追加)。测试:`SharedMemoryKitTest` / `SharedMemoryConcurrencyTest` / `IdempotencyTest` / `A2aSharedMemoryTest`。 |
+| **弹性(上千 A2A)** | ✅ 进程内已验证 | 单一**按协作分区**的共享存储(非每协作一结构),`ConcurrentHashMap` 可水平扩。`ScaleTest`:**2000 并发协作**零跨协作泄漏、零竞争。边界:**真跨进程/分片**的分布式扩展属后端(redis / 闭源引擎),本模块未含。 |
+| **韧性(流量过大反压)** | ✅ | `BoundedSharedMemoryStore`:有界在途许可 + 获取超时,**过载即甩载**(`BackpressureRejectedException`,负反馈),计数 + 观测上报。`BoundedSharedMemoryStoreTest`:满载拒绝、欠载放行。 |
+| **Ops 可观测 + 性能** | ✅ | 双模观测(`Slf4jMemoryObserver` routine→DEBUG/verbose→INFO/问题→WARN,`isEnabled` 守卫 + MDC finally 清;`MicrometerMemoryObserver` `a2amem.*` 低基数;组合故障隔离),接入 `SharedMemoryKit`(`MemoryObserverTest`)。性能:`PerfBenchmarkTest` 进程内 put+get **~130 万 ops/s**,p50≈0µs/p99≈1µs。 |
+| **经济性(token 节省)** | ✅ 已量化 | `EconomyEvalTest`:确定性模型,共享黑板让下游 agent 读上游结论而非重推 → **省 ~67% 推导**(token 代理量);跨 run 经验召回避免重推有效模式;经验蒸馏 + PII 脱敏只留要点。 |
 
-## 本期明确未做(引擎侧 / 后续,非缺陷而是范围)
-- 闭源 Java 引擎本体(向量索引、语义召回、存储分层)+ 容器交付 + mTLS + gRPC `memopt.v1` wire(本期是 in-memory 后端 + 同一门面)。
-- 服务端**限流/有界队列**(重负载反压的服务端半边)。
-- `memopt-runtime-adapter`(接平台 `MemoryProvider` SPI;doushuai 示例已示范桥接模式)。
-- 经验"任务签名"调优、并发写的更强一致策略(当前 append-log + 所有权已够)。
+## 真实 A2A 端到端(核心)
+
+`A2aSharedMemoryWireTest`:启**真实 agent-runtime**(随机端口,no-LLM agent),经**真实 A2A JSON-RPC 线**:同一 `contextId` 上 `PUT`→`GET` 跨调用共享、非 owner 写被拒(`DENIED`)、跨 `contextId` 隔离(`MISS`)。证明"A2A 智能体之间共享记忆"在真实协议上成立,无需 API key。
+跨 run 经验:`ExperienceLifecycleTest` 模拟 coordinator run-end 调 hook → 后续协作召回前次经验(且租户隔离)。
+
+## 本期明确未做(后端/部署阶段,非缺陷)
+- 闭源 MemOpt 引擎本体(向量索引/语义召回/存储分层)+ 容器交付 + mTLS + gRPC `memopt.v1` 远程 wire。
+- 真**跨进程/分片**的分布式扩展(本期是单 JVM 内并发验证)。
+- 服务端限流(本期反压在客户端/装饰器侧;服务端半边属引擎)。
+- 经验"任务签名"调优;两个真实 runtime 互打的 over-wire e2e(本期单 runtime 多调用 + 多 agent 角色已验证语义)。
 
 ## 结论
-A2A 共享记忆中间件 kit + MemOpt 引擎 kit 在五个维度上都有**已测**的落地(鲁棒/弹性/韧性-客户端/可观测/经济),规模到**2000 并发协作**已验证,agent 间按 contextId 共享 + 所有权用真实 agent-runtime context 验证,MemOpt 作为可插拔后端验证(a2a kit 不改一行跑在其上)。剩余强项(高性能持久/召回、服务端反压、gRPC 远程)按设计**属 MemOpt 部署形态**(form C 容器),边界清晰、已在 ADR-0162 标注。**整体 38 测试通过(a2a-shared-memory 27 + memopt 11)。**
+对照之前提的需求,#283 的 A2A 共享记忆中间件在五维上**逐条有已测落地**(含此前缺的:反压、幂等、真实 over-the-wire e2e、经验跨 run 生命周期、经济性量化、性能基准),**38/38 通过**。仍未做的是**闭源引擎部署形态(MemOpt,另任务)** 与**真分布式扩展**,边界清晰、已在 ADR-0162 标注——不再把它们混进 #283。

@@ -29,6 +29,11 @@ public final class A2aSharedMemoryHandle {
         return kit.put(key, value, agentId);
     }
 
+    /** Idempotent write: a retry with the same {@code idempotencyKey} won't duplicate. */
+    public SharedEntry put(String key, String value, String idempotencyKey) {
+        return kit.put(key, value, agentId, idempotencyKey);
+    }
+
     /** Latest value any participant wrote for a key. */
     public Optional<String> get(String key) {
         return kit.get(key);

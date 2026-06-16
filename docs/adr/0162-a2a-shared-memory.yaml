@@ -64,9 +64,17 @@ decision: |
        write is rejected. After hand-over A -> B, B writes its OWN new keys; A's
        keys stay read-only (A's conclusions are immutable to B).
 
-    3. CONFLICT = APPEND-LOG + PROVENANCE. Each write appends (value,
-       writerAgentId, version, ts); reads return latest by default and can pull
-       history. Nothing is silently overwritten — auditable, as a bank requires.
+    3. CONFLICT = APPEND-LOG + PROVENANCE, with IDEMPOTENT writes. Each write
+       appends (value, writerAgentId, version, ts); reads return latest by default
+       and can pull history. Nothing is silently overwritten — auditable. A write
+       may carry an idempotency key so a RETRIED hand-over/dispatch does not
+       double-append (returns the prior entry).
+
+    3a. BACKPRESSURE. A BoundedSharedMemoryStore decorator caps concurrent
+       in-flight ops; under overload it sheds (BackpressureRejectedException) and
+       reports to the observer rather than piling unbounded load onto the engine —
+       the negative-feedback the resilience requirement asks for. The server-side
+       rate-limit half belongs to the closed engine (deployment).
 
     4. EXPERIENCE IS PII-STRIPPED. Cross-run experience is tenant-shared, so the
        distillation MUST strip user PII before record — it retains
@@ -123,8 +131,12 @@ consequences: |
       which will need tuning against real collaborations.
     * Ownership + append-log raise storage cost vs last-writer; accepted for
       auditability.
-    * Real over-the-A2A-wire sharing is exercised via the agent-runtime execution
-      context (binding + tests); a booted two-runtime e2e is a follow-up.
+    * Real over-the-A2A-wire sharing is exercised by a booted no-LLM agent driven
+      over the actual A2A JSON-RPC wire (A2aSharedMemoryWireTest: PUT/GET share by
+      contextId, ownership DENIED, cross-context isolation); a two-runtime e2e and
+      true distributed (cross-process/sharded) scale remain follow-ups. Economy is
+      quantified by a deterministic eval (~67% fewer derivations); the in-process
+      hot path benchmarks ~1.3M ops/s. Module: 38/38 tests.
 
   GOVERNANCE FOLLOW-UPS (before proposed -> accepted as a governed architecture
   change): register `a2a-shared-memory` in the architecture graph, add

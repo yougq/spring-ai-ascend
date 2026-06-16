@@ -54,9 +54,18 @@ public final class SharedMemoryKit {
      * of a key owns it; a non-owner write throws {@link OwnershipViolationException}.
      */
     public SharedEntry put(String key, String value, String writerAgentId) {
+        return put(key, value, writerAgentId, null);
+    }
+
+    /**
+     * Idempotent write: a retry with the same non-null {@code idempotencyKey}
+     * returns the prior entry instead of appending a duplicate — safe when a
+     * dispatch/hand-over is retried.
+     */
+    public SharedEntry put(String key, String value, String writerAgentId, String idempotencyKey) {
         long t0 = System.nanoTime();
         try {
-            SharedEntry entry = store.append(tenantId, collaborationId, key, value, writerAgentId);
+            SharedEntry entry = store.append(tenantId, collaborationId, key, value, writerAgentId, idempotencyKey);
             observer.onOperation("shared.put", tenantId, true, elapsedMs(t0));
             return entry;
         } catch (OwnershipViolationException e) {

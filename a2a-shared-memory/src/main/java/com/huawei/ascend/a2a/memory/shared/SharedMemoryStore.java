@@ -14,11 +14,28 @@ public interface SharedMemoryStore {
 
     /**
      * Append a value to a key under one collaboration, enforcing ownership.
+     * Non-idempotent (each call appends a new version).
      *
      * @throws OwnershipViolationException if the key exists and {@code writerAgentId}
      *                                     is not its owner (the version-1 writer).
      */
-    SharedEntry append(String tenantId, String collaborationId, String key, String value, String writerAgentId);
+    default SharedEntry append(String tenantId, String collaborationId, String key, String value,
+            String writerAgentId) {
+        return append(tenantId, collaborationId, key, value, writerAgentId, null);
+    }
+
+    /**
+     * Append with an idempotency key so a RETRIED write does not duplicate: if a
+     * write with the same non-null {@code idempotencyKey} was already applied for
+     * this collaboration, the prior {@link SharedEntry} is returned and nothing is
+     * appended. A null key falls back to non-idempotent append. Ownership is still
+     * enforced.
+     *
+     * @throws OwnershipViolationException if the key exists and {@code writerAgentId}
+     *                                     is not its owner.
+     */
+    SharedEntry append(String tenantId, String collaborationId, String key, String value, String writerAgentId,
+            String idempotencyKey);
 
     /** Latest entry for a key, or empty if never written. */
     Optional<SharedEntry> latest(String tenantId, String collaborationId, String key);
