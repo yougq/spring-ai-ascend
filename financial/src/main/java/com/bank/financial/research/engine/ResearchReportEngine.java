@@ -22,10 +22,14 @@ import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
 import com.huawei.ascend.a2a.memory.shared.InMemorySharedMemoryStore;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryKit;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryStore;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.LongSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Orchestrates the research-desk pipeline. It sequences the specialised
@@ -43,6 +47,8 @@ import java.util.function.LongSupplier;
  * are exactly what the analysis agents computed.
  */
 public final class ResearchReportEngine {
+
+    private static final Logger log = LoggerFactory.getLogger("research.engine");
 
     private final DataIngestionService ingestion;
     private final String dataSourceName;
@@ -63,6 +69,25 @@ public final class ResearchReportEngine {
 
     /** Run the full pipeline and return the assembled report. */
     public ResearchReport generate(ReportRequest request) {
+        Timer.Sample sample = Timer.start(Metrics.globalRegistry);
+        boolean ok = false;
+        log.info("research-report start run={} ticker={} type={} model={}",
+                request.collaborationId(), request.ticker(), request.reportType(), model.name());
+        try {
+            ResearchReport report = doGenerate(request);
+            ok = true;
+            log.info("research-report done run={} rating={} target={} calls={} degraded={}",
+                    request.collaborationId(), report.rating(), report.priceTarget(),
+                    report.metadata().modelCalls(), report.metadata().degradations().size());
+            return report;
+        } finally {
+            sample.stop(Metrics.timer("research.report.latency", "type", request.reportType()));
+            Metrics.counter("research.report.count", "type", request.reportType(),
+                    "outcome", ok ? "ok" : "error").increment();
+        }
+    }
+
+    private ResearchReport doGenerate(ReportRequest request) {
         long now = request.asOfEpochMs();
         CompanyData.Dataset dataset = ingestion.assemble(request.ticker(), 5, now);
 
@@ -72,55 +97,94 @@ public final class ResearchReportEngine {
         CollaborationSignature signature = signature(request);
         ExperienceMemoryKit experience = ExperienceMemoryKit.forTenant(experienceStore, request.tenantId());
 
-        // Cross-run knowledge: recall lessons from prior similar reports.
-        List<Lesson> recalled = experience.recall(signature, 5);
-        if (!recalled.isEmpty()) {
-            StringBuilder sb = new StringBuilder();
-            for (Lesson l : recalled) {
-                sb.append("- ").append(l.text()).append('\n');
+        // Cross-run knowledge: recall lessons from prior similar reports (fail-soft).
+        try {
+            List<Lesson> recalled = experience.recall(signature, 5);
+            if (!recalled.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (Lesson l : recalled) {
+                    sb.append("- ").append(l.text()).append('\n');
+                }
+                ctx.put("planner", "experience.recalled", sb.toString());
             }
-            ctx.put("planner", "experience.recalled", sb.toString());
+        } catch (RuntimeException e) {
+            ctx.degraded("experience:recall", e.getMessage());
         }
 
         // ── PLAN → INGEST → ANALYZE ───────────────────────────────────────────
-        new PlannerAgent().contribute(ctx);
-        new DataIngestionAgent().contribute(ctx);
-        new QuantModelAgent().contribute(ctx);
-        new ValuationAgent().contribute(ctx);
-        new SectorMacroAgent().contribute(ctx);
+        safe(ctx, new PlannerAgent());
+        safe(ctx, new DataIngestionAgent());
+        safe(ctx, new QuantModelAgent());
+        safe(ctx, new ValuationAgent());
+        safe(ctx, new SectorMacroAgent());
 
         // ── CONVERGE: the manager forms the house view (sole decision-maker) ──
-        LeadManagerAgent manager = new LeadManagerAgent();
-        manager.contribute(ctx);
+        safe(ctx, new LeadManagerAgent());
         ctx.memory("lead-manager").recordHandover("writer", "house view set (rating + target)");
 
         // ── WRITE → CRITIQUE (bounded writer↔critic revision loop) ────────────
         WriterAgent writer = new WriterAgent();
         CriticAgent critic = new CriticAgent();
-        writer.contribute(ctx);
-        List<String> findings = critic.review(ctx);
+        safe(ctx, writer);
+        List<String> findings = reviewSafe(ctx, critic);
         int rounds = 0;
         while (!findings.isEmpty() && rounds < request.budget().maxCriticRounds() && ctx.withinTime()) {
             rounds++;
-            writer.contribute(ctx); // appends revised section versions (audit-logged)
-            findings = critic.review(ctx);
+            log.debug("research-report revise run={} round={} findings={}",
+                    request.collaborationId(), rounds, findings.size());
+            safe(ctx, writer); // appends revised section versions (audit-logged)
+            findings = reviewSafe(ctx, critic);
         }
 
         // ── COMPLY ────────────────────────────────────────────────────────────
         ComplianceAgent compliance = new ComplianceAgent();
-        List<String> complianceNotes = compliance.notes(ctx);
-        compliance.contribute(ctx);
+        List<String> complianceNotes;
+        List<String> dataGaps;
+        try {
+            complianceNotes = compliance.notes(ctx);
+            dataGaps = compliance.dataGaps(ctx);
+            compliance.contribute(ctx);
+        } catch (RuntimeException e) {
+            ctx.degraded("compliance", e.getMessage());
+            complianceNotes = List.of("披露生成失败,需人工补充。");
+            dataGaps = List.of();
+        }
 
         // ── ASSEMBLE from the blackboard ──────────────────────────────────────
-        ResearchReport report = assemble(ctx, rounds, findings, complianceNotes, compliance.dataGaps(ctx));
+        ResearchReport report = assemble(ctx, rounds, findings, complianceNotes, dataGaps);
         ctx.memory("lead-manager").recordOutcome("report assembled: " + report.rating());
 
-        // Distill this run's blackboard into cross-run experience (PII-stripped).
-        SharedMemoryKit blackboard = SharedMemoryKit.forCollaboration(
-                store, request.tenantId(), request.collaborationId());
-        new DefaultCollaborationMemoryHook(experience, false).onCollaborationEnd(signature, blackboard);
+        // Distill this run's blackboard into cross-run experience (PII-stripped, fail-soft).
+        try {
+            SharedMemoryKit blackboard = SharedMemoryKit.forCollaboration(
+                    store, request.tenantId(), request.collaborationId());
+            new DefaultCollaborationMemoryHook(experience, false).onCollaborationEnd(signature, blackboard);
+        } catch (RuntimeException e) {
+            ctx.degraded("experience:distill", e.getMessage());
+        }
 
         return report;
+    }
+
+    /** Run one sub-agent with timing + fault isolation: a failure degrades, never aborts. */
+    private void safe(ReportContext ctx, com.bank.financial.research.agent.ReportSubAgent agent) {
+        long t0 = ctx.now();
+        try {
+            agent.contribute(ctx);
+            log.debug("research-report phase ok run={} role={} ms={}",
+                    ctx.request().collaborationId(), agent.role(), ctx.now() - t0);
+        } catch (RuntimeException e) {
+            ctx.degraded(agent.role(), e.getMessage());
+        }
+    }
+
+    private List<String> reviewSafe(ReportContext ctx, CriticAgent critic) {
+        try {
+            return critic.review(ctx);
+        } catch (RuntimeException e) {
+            ctx.degraded("critic", e.getMessage());
+            return List.of();
+        }
     }
 
     private CollaborationSignature signature(ReportRequest request) {
@@ -153,7 +217,7 @@ public final class ResearchReportEngine {
 
         ResearchReport.Metadata metadata = new ResearchReport.Metadata(
                 model.name(), dataSourceName, ctx.modelCalls(), criticRounds, verdict,
-                dataGaps, complianceNotes, findings, ctx.now());
+                dataGaps, complianceNotes, findings, ctx.degradations(), ctx.now());
 
         return new ResearchReport(
                 request.ticker(), company, currency, rating, priceTarget, currentPrice, upside,

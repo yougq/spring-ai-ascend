@@ -42,10 +42,18 @@ public final class WriterAgent implements ReportSubAgent {
         String brief = briefFor(ctx, id);
         String body;
         if (ctx.tryModelCall()) {
-            body = ctx.model().generate(new ReportModel.ModelTask(
-                    "writer", "撰写「" + title + "」章节,机构口径、结论先行、论点回链。", brief, 600));
+            try {
+                body = ctx.model().generate(new ReportModel.ModelTask(
+                        "writer", "撰写「" + title + "」章节,机构口径、结论先行、论点回链。", brief, 600));
+            } catch (RuntimeException e) {
+                // Live model failed/timed out — degrade this section to facts so the
+                // report stays complete instead of aborting the whole run.
+                ctx.degraded("writer:" + id, e.getMessage());
+                body = "(本节模型生成失败,降级为事实摘要)\n" + brief;
+            }
         } else {
             // Budget exhausted — emit a faithful fact-only section so the report stays complete.
+            ctx.degraded("writer:" + id, "model budget exhausted");
             body = "(模型预算用尽,以下为事实摘要)\n" + brief;
         }
         ctx.put(role(), Bb.SECTION_PREFIX + id, body);
@@ -105,7 +113,8 @@ public final class WriterAgent implements ReportSubAgent {
                 facts.put("概率加权期望每股", ctx.latest(Bb.SCENARIO_EXPECTED).orElse("n/a"));
             }
             case "sector" -> {
-                facts.put("外部信息收入影响(%)", ctx.latest(Bb.REVENUE_IMPACT_PCT).orElse("n/a"));
+                facts.put("外部信息收入影响", ctx.latest(Bb.REVENUE_IMPACT_PCT)
+                        .map(v -> Bb.pct(parse(v))).orElse("n/a"));
                 facts.put("外部信息EPS影响", ctx.latest(Bb.EPS_IMPACT).orElse("n/a"));
                 CompanyData.Dataset ds = ctx.dataset();
                 int i = 1;

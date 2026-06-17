@@ -53,12 +53,13 @@ public record ResearchReport(
     public record Metadata(
             String modelName, String dataSource, int modelCalls, int criticRounds,
             String convergenceVerdict, List<String> dataGaps, List<String> complianceNotes,
-            List<String> consistencyFindings, long generatedAtEpochMs) {
+            List<String> consistencyFindings, List<String> degradations, long generatedAtEpochMs) {
 
         public Metadata {
             dataGaps = List.copyOf(dataGaps);
             complianceNotes = List.copyOf(complianceNotes);
             consistencyFindings = List.copyOf(consistencyFindings);
+            degradations = degradations == null ? List.of() : List.copyOf(degradations);
         }
     }
 }

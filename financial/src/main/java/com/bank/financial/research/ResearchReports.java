@@ -10,7 +10,10 @@ import com.bank.financial.research.engine.ResearchReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.model.ScriptedReportModel;
+import com.bank.financial.research.model.TimeoutReportModel;
+import com.huawei.ascend.a2a.memory.obs.CompositeMemoryObserver;
 import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
+import com.huawei.ascend.a2a.memory.obs.MicrometerMemoryObserver;
 import com.huawei.ascend.a2a.memory.obs.Slf4jMemoryObserver;
 import java.time.Duration;
 
@@ -42,11 +45,15 @@ public final class ResearchReports {
     public static ResearchReportEngine fromEnv(long asOfEpochMs) {
         ResearchDataSource source = dataSourceFromEnv(asOfEpochMs);
         DataIngestionService ingestion = new DataIngestionService(source, FreshnessPolicy.days(envInt("RESEARCH_FRESHNESS_DAYS", 90)));
+        // Live model is bounded by a hard per-call timeout so a stuck LLM can't hang a run.
         ReportModel model = liveModel()
-                ? new OpenJiuwenReportModel(ModelConnection.forTier("smart"))
+                ? new TimeoutReportModel(new OpenJiuwenReportModel(ModelConnection.forTier("smart")),
+                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60)))
                 : new ScriptedReportModel();
-        return new ResearchReportEngine(
-                ingestion, source.name(), model, null, new Slf4jMemoryObserver(false), null);
+        // One instrumentation surface: routine ops via Slf4j (DEBUG), metrics via Micrometer.
+        MemoryObserver observer = CompositeMemoryObserver.of(
+                new Slf4jMemoryObserver(false), new MicrometerMemoryObserver());
+        return new ResearchReportEngine(ingestion, source.name(), model, null, observer, null);
     }
 
     private static ResearchDataSource dataSourceFromEnv(long asOfEpochMs) {

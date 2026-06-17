@@ -70,14 +70,23 @@ public final class LeadManagerAgent implements ReportSubAgent {
         if (!ctx.tryModelCall()) {
             return deterministicThesis(ctx, rating, target, upside, verdict);
         }
+        String impact = ctx.latestNum(Bb.REVENUE_IMPACT_PCT).isPresent()
+                ? Bb.pct(ctx.latestNum(Bb.REVENUE_IMPACT_PCT).getAsDouble()) : "n/a";
         String brief = "评级=" + rating + "; 目标价=" + Bb.fmt(target)
                 + "; 潜在空间=" + Bb.pct(upside) + "; 收敛判定=" + verdict
                 + "; DCF每股=" + ctx.latest(Bb.DCF_PER_SHARE).orElse("n/a")
                 + "; 可比中位每股=" + ctx.latest(Bb.COMPS_MEDIAN).orElse("n/a")
                 + "; 收入趋势(FY1)=" + ctx.latest(Bb.REVENUE_FY1).orElse("n/a")
-                + "; 外部信息收入影响=" + ctx.latest(Bb.REVENUE_IMPACT_PCT).orElse("0") + "%";
-        String prose = ctx.model().generate(new ReportModel.ModelTask(
-                role(), "用2-3句话给出统一的投资论点(house view),以评级与目标价为锚,说明驱动与主要风险。", brief, 120));
+                + "; 外部信息收入影响=" + impact;
+        String prose;
+        try {
+            prose = ctx.model().generate(new ReportModel.ModelTask(
+                    role(), "用2-3句话给出统一的投资论点(house view),以评级与目标价为锚,说明驱动与主要风险。", brief, 120));
+        } catch (RuntimeException e) {
+            // Model failed/timed out — fall back to the deterministic thesis, never abort.
+            ctx.degraded("lead-manager:thesis", e.getMessage());
+            return deterministicThesis(ctx, rating, target, upside, verdict);
+        }
         // Anchor the canonical numbers into the thesis so it never drifts from them.
         return prose + " 【锚定】目标价 " + Bb.fmt(target) + ",潜在空间 " + Bb.pct(upside) + "。";
     }

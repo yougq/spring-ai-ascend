@@ -107,12 +107,18 @@ RESEARCH_DATA_BASE_URL=https://data-gw.intra/bank \
 
 ## 8. 诚实自检 — 已达成 vs 待办
 
-**已达成(离线可复现、有测试):** 9 智能体流水线;纯 Java 金融计算全单测;黑板单一事实源 + 一致性门 + 收敛门 + 有界改稿 + 合规披露;数据四层 SPI + 容错降级 + 新鲜度 + 溯源;跨运行经验蒸馏/召回;预算/可观测;facade + 独立 playground。
+**已达成(离线可复现、有测试,29/29):** 9 智能体流水线;纯 Java 金融计算全单测;黑板单一事实源 + 一致性门 + 收敛门 + 有界改稿 + 合规披露;数据四层 SPI + 容错降级 + 新鲜度 + 溯源;跨运行经验蒸馏/召回;预算/可观测;facade + 独立 playground。
+
+**经五维深审已加固(2026-06-17):**
+- **故障隔离(robustness/resilience)**:引擎对每个 agent contribution 与每次模型调用做异常隔离——失败则该节降级为"事实摘要"、首席论点回退确定性版本,**整篇报告仍完整产出**,降级事件记入 `metadata.degradations` 并打 WARN;经验 recall/distill、合规均 fail-soft。失败路径有测试(注入永远抛错的模型 → 报告仍完整 + 降级被记录)。
+- **live LLM 硬超时(robustness)**:`TimeoutReportModel` 装饰器给真实模型每次调用加硬超时(默认 60s,`RESEARCH_MODEL_TIMEOUT_S` 可调),超时即降级,不再无限阻塞;有超时单测。
+- **单位一致(correctness)**:外部信息收入影响统一按百分比展示(`Bb.pct`),修正此前分数/百分比混用。
+- **编排层可观测(observability)**:引擎按 run/phase 打结构化日志 + Micrometer `research.report.latency`/`research.report.count{outcome}` 指标;`fromEnv` 组合 Slf4j + Micrometer 两个 observer(同一埋点,配置切强度)。
 
 **待办 / 当前边界(明确披露):**
-- **真实 LLM 路径**(`OpenJiuwenReportModel`)已编译接通,但**离线未实跑**(无 key);需一条 live 集成测试与实测长度/质量。
-- 离线报告长度为**示意**(脚本模型,~9k 字符);"数万 token"长度需真实模型生成。
+- **真实 LLM 路径**(`OpenJiuwenReportModel`)已编译接通且加了超时/降级,但**离线未实跑**(无 key);需一条 live 集成测试与实测长度/质量。
+- 离线报告长度为**示意**(脚本模型,~3.6k 字符);"数万 token"长度需真实模型生成。
 - ANALYZE 阶段目前**顺序**执行;可借 `collaboration` 的 `Coordinator` 把建模/估值/行业**并行**(已评估,接口就绪,未接线)。
 - WACC 为**固定假设**(未做 CAPM 推导);"情绪→驱动因子冲击"映射为**一阶启发式**——两者均已在代码注释中标注,生产应以校准弹性/CAPM 替换。
-- 未跑 A2A 服务端 e2e;默认未用 `BoundedSharedMemoryStore` 包装(背压能力就绪,未默认接线)。
+- 未跑 A2A 服务端 e2e;默认未用 `BoundedSharedMemoryStore` 包装(背压能力就绪,单 run 黑板小、风险低)。
 - 适用档:**生产级方向的可运行垂直切片**,非完整可发布产品;符合"分析师增强、人工/SA 签发"的定位。

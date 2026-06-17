@@ -8,12 +8,15 @@ import com.huawei.ascend.a2a.memory.auth.MemoryPrincipal;
 import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
 import com.huawei.ascend.a2a.memory.shared.SharedEntry;
 import com.huawei.ascend.a2a.memory.shared.SharedMemoryStore;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Per-run state shared by all sub-agents: the blackboard (canonical store),
@@ -31,7 +34,10 @@ public final class ReportContext {
     private final MemoryObserver observer;
     private final LongSupplier clock;
 
+    private static final Logger log = LoggerFactory.getLogger("research.engine");
+
     private final Map<String, A2aSharedMemoryHandle> handles = new ConcurrentHashMap<>();
+    private final List<String> degradations = Collections.synchronizedList(new java.util.ArrayList<>());
     private final long startMs;
     private int modelCalls = 0;
 
@@ -120,5 +126,19 @@ public final class ReportContext {
     public boolean withinTime() {
         long limit = request.budget().timeoutMs();
         return limit <= 0 || (now() - startMs) < limit;
+    }
+
+    // ── Graceful degradation (a failed step degrades, never aborts the run) ────
+
+    /** Record that {@code where} degraded for {@code reason}; surfaced in metadata + WARN log. */
+    public void degraded(String where, String reason) {
+        String note = where + ": " + (reason == null ? "unknown" : reason);
+        degradations.add(note);
+        log.warn("research-report degraded run={} {}", request.collaborationId(), note);
+    }
+
+    /** Degradations recorded during the run (empty = no fallback path was taken). */
+    public List<String> degradations() {
+        return List.copyOf(degradations);
     }
 }
