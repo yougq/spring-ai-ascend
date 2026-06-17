@@ -1,36 +1,39 @@
 package com.bank.financial.research;
 
+import com.bank.financial.research.engine.ReportBudget;
 import com.bank.financial.research.engine.ReportRequest;
-import com.bank.financial.research.engine.ResearchReport;
-import com.bank.financial.research.engine.ResearchReportEngine;
+import com.bank.financial.research.thematic.ThematicReport;
+import com.bank.financial.research.thematic.ThematicReportEngine;
 
 /**
- * Standalone, no-API-key demonstration of the research-report engine — the
- * end-to-end "一条龙": ingest → analyse → converge → write → critique → comply →
- * assemble, printed as a finished Markdown report.
+ * Standalone demo of the thematic / sector-strategy engine — the multi-agent
+ * pipeline (plan → ingest → impact-scoring → strategy → write → critique → comply)
+ * that turns a macro scenario into a sector-strategy report with computed
+ * sub-sector ratings.
  *
  * <pre>
- *   ./financial/play-research.sh DEMO          # offline: stub data + scripted model
- *   ./financial/play-research.sh DEMO --real    # env-driven data/model (BANK_LLM_*, RESEARCH_*)
+ *   ./financial/play-research.sh --thematic "中国 TMT"          # offline (scripted)
+ *   ./financial/play-research.sh --thematic "中国 TMT" --real    # env-driven live model
  * </pre>
  */
-public final class ResearchReportPlayground {
+public final class ResearchReportPlaygroundThematic {
 
     public static void main(String[] args) {
         LogQuieter.quiet();
-        String ticker = "DEMO";
+        String theme = "中国 TMT";
         boolean real = false;
         for (String a : args) {
             if (a.equals("--real")) {
                 real = true;
             } else if (!a.startsWith("--")) {
-                ticker = a;
+                theme = a;
             }
         }
 
         long asOf = System.currentTimeMillis();
-        ResearchReportEngine engine = real ? ResearchReports.fromEnv(asOf) : ResearchReports.offline(asOf);
-        ResearchReport report = engine.generate(ReportRequest.equity(ticker, "playground", asOf));
+        ThematicReportEngine engine = real ? ResearchReports.thematicFromEnv(asOf) : ResearchReports.thematicOffline(asOf);
+        ReportRequest request = new ReportRequest(theme, "INDUSTRY", "playground", "zh-CN", asOf, ReportBudget.standard());
+        ThematicReport report = engine.generate(request);
 
         System.out.println(report.toMarkdown());
         System.out.println("\n────────────────────────────────────────");
@@ -39,13 +42,8 @@ public final class ResearchReportPlayground {
         System.out.println("  数据源         = " + report.metadata().dataSource());
         System.out.println("  模型调用次数   = " + report.metadata().modelCalls());
         System.out.println("  评审轮数       = " + report.metadata().criticRounds());
-        System.out.println("  收敛判定       = " + report.metadata().convergenceVerdict());
         System.out.println("  一致性发现     = " + report.metadata().consistencyFindings().size() + " 条");
-        System.out.println("  数据缺口       = " + report.metadata().dataGaps().size() + " 条");
         System.out.println("  降级事件       = " + report.metadata().degradations().size() + " 条");
-        for (String d : report.metadata().degradations()) {
-            System.out.println("    · " + d);
-        }
         System.out.println("  报告字符数     = " + report.charCount());
     }
 }

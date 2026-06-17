@@ -122,3 +122,18 @@ RESEARCH_DATA_BASE_URL=https://data-gw.intra/bank \
 - WACC 为**固定假设**(未做 CAPM 推导);"情绪→驱动因子冲击"映射为**一阶启发式**——两者均已在代码注释中标注,生产应以校准弹性/CAPM 替换。
 - 未跑 A2A 服务端 e2e;默认未用 `BoundedSharedMemoryStore` 包装(背压能力就绪,单 run 黑板小、风险低)。
 - 适用档:**生产级方向的可运行垂直切片**,非完整可发布产品;符合"分析师增强、人工/SA 签发"的定位。
+
+---
+
+## 9. 主题 / 宏观板块策略引擎(扩展)
+
+个股引擎之外新增一条**主题/板块策略**线(`research.thematic`),把宏观与地缘事件传导到子板块,产出"板块评级 + 子板块超配/标配/低配 + 配置建议"的策略研报(如中国 TMT)。复用同一套黑板、ReportModel、预算、可观测、经验、降级保护;通用管线抽出 `RunContext` 基类,个股/主题引擎共用。
+
+- **数字骨架(确定性)**:`SectorImpactModel` —— 宏观因子(方向×强度)× 子板块敞口矩阵 → 各子板块**复合影响分** → 评级。**评级是算出来的,不是模型断言的**;LLM 只写散文。
+- **数据层**:`ThematicDataSource` SPI + `StubThematicDataSource`(把美伊缓和 / FOMC 鹰派 / 国内宽货币 / 中美股市 4 条主线 × 6 个 TMT 子板块的敞口编码为可复现场景;生产可接实时源/喂入实时事件)。
+- **7 个主题智能体**:planner / data(macro-ingestion)/ sector-impact / lead-manager(唯一决策者)/ writer(单声道)/ critic / compliance,经 `ThematicReportEngine` 编排:`PLAN→INGEST→IMPACT→CONVERGE→WRITE→CRITIQUE→COMPLY→ASSEMBLE`。
+- **运行**:`./financial/play-research.sh --thematic "中国 TMT"`(离线);加 `--real` 走真实模型。
+
+**✅ 真实 agent-runtime 验证(2026-06-17)**:以 GLM Coding Plan(`glm-4.6`)跑通 `--thematic --real` —— 元数据显示 `模型=openjiuwen:glm-4.6`,即经 `OpenJiuwenReportModel → ReActAgent → agent-runtime → GLM`;**8 次真实模型调用、0 降级、0 一致性问题**;计算出的子板块评级(半导体/AI算力 1.03、CPO 0.77、商业航天 0.69 → 超配;消费电子 0.145、互联网 0.09 → 标配;软件/SaaS −0.18 → 低配;总体 0.4242 → 超配)与人工策略判断一致,论点为真实模型散文且锚定计算分。
+
+测试合计 **38/38**(新增 `SectorImpactModelTest` 4 + `ThematicReportEngineTest` 5,后者含"模型全失败仍完整产出 + 评级因系计算而保留"的降级测试)。样例见 [`sample-thematic-china-tmt.md`](sample-thematic-china-tmt.md)。

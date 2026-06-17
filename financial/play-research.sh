@@ -13,9 +13,17 @@ export JAVA_HOME
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# --thematic routes to the sector-strategy engine; default is the single-stock equity engine.
+MAIN=com.bank.financial.research.ResearchReportPlayground
+ARGS="$*"
+if [[ " $* " == *" --thematic "* ]]; then
+  MAIN=com.bank.financial.research.ResearchReportPlaygroundThematic
+  ARGS="${ARGS/--thematic/}"
+fi
+
 # Filter the framework's own INFO/timestamped log chatter so only the report shows.
 ./mvnw -q -o -f financial/pom.xml \
-  -Dexec.mainClass=com.bank.financial.research.ResearchReportPlayground \
-  -Dexec.args="$*" \
+  -Dexec.mainClass="$MAIN" \
+  -Dexec.args="$ARGS" \
   compile exec:java \
   | grep --line-buffered -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2} |^[0-9]{2}:[0-9]{2}:[0-9]{2}|^SLF4J|logback'

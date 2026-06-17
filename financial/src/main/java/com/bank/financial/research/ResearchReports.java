@@ -6,7 +6,9 @@ import com.bank.financial.research.data.FreshnessPolicy;
 import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.http.HttpResearchDataSource;
 import com.bank.financial.research.data.stub.StubResearchDataSource;
+import com.bank.financial.research.data.stub.StubThematicDataSource;
 import com.bank.financial.research.engine.ResearchReportEngine;
+import com.bank.financial.research.thematic.ThematicReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.model.ScriptedReportModel;
@@ -64,6 +66,25 @@ public final class ResearchReports {
                     System.getenv("RESEARCH_DATA_TOKEN"), asOfEpochMs);
         }
         return new StubResearchDataSource(asOfEpochMs);
+    }
+
+    // ── Thematic / sector-strategy engine ─────────────────────────────────────
+
+    /** Fully offline thematic engine (scenario stub + scripted model). */
+    public static ThematicReportEngine thematicOffline(long asOfEpochMs) {
+        return new ThematicReportEngine(
+                new StubThematicDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
+    }
+
+    /** Thematic engine with the env-driven live model (data still from the scenario stub). */
+    public static ThematicReportEngine thematicFromEnv(long asOfEpochMs) {
+        ReportModel model = liveModel()
+                ? new TimeoutReportModel(new OpenJiuwenReportModel(ModelConnection.forTier("smart")),
+                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60)))
+                : new ScriptedReportModel();
+        return new ThematicReportEngine(
+                new StubThematicDataSource(asOfEpochMs), model, null,
+                CompositeMemoryObserver.of(new Slf4jMemoryObserver(false), new MicrometerMemoryObserver()), null);
     }
 
     static boolean liveModel() {
