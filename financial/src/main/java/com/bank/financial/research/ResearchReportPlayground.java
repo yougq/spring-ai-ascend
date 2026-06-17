@@ -42,6 +42,9 @@ public final class ResearchReportPlayground {
         System.out.println("  一致性发现     = " + report.metadata().consistencyFindings().size() + " 条");
         System.out.println("  数据缺口       = " + report.metadata().dataGaps().size() + " 条");
         System.out.println("  降级事件       = " + report.metadata().degradations().size() + " 条");
+        for (String d : report.metadata().degradations()) {
+            System.out.println("    · " + d);
+        }
         System.out.println("  报告字符数     = " + report.charCount());
     }
 }
