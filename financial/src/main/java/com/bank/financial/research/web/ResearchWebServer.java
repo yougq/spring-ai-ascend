@@ -75,6 +75,12 @@ public final class ResearchWebServer {
             Map.of("role", "lead-manager", "label", "首席"), Map.of("role", "writer", "label", "撰写"),
             Map.of("role", "critic", "label", "评审"), Map.of("role", "compliance", "label", "合规"));
 
+    private static final List<Map<String, String>> MACRO_AGENTS = List.of(
+            Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "指标录入"),
+            Map.of("role", "analysis", "label", "量化打分"), Map.of("role", "lead-manager", "label", "策略首席"),
+            Map.of("role", "writer", "label", "撰写"), Map.of("role", "critic", "label", "评审"),
+            Map.of("role", "compliance", "label", "合规"));
+
     private static final List<Map<String, String>> THEMATIC_AGENTS = List.of(
             Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "宏观录入"),
             Map.of("role", "sector-impact", "label", "因子打分"), Map.of("role", "lead-manager", "label", "策略首席"),
@@ -209,12 +215,38 @@ public final class ResearchWebServer {
                 report.put("modelCalls", tr.metadata().modelCalls());
                 report.put("criticRounds", tr.metadata().criticRounds());
                 report.put("degradations", tr.metadata().degradations().size());
+            } else if ("macro".equals(type)) {
+                send(out, "pipeline", Map.of("agents", MACRO_AGENTS));
+                String region = orDefault(q.get("ticker"), "中国");
+                com.bank.financial.research.data.MacroDataSource msrc = "stub".equals(source)
+                        ? new com.bank.financial.research.data.stub.StubMacroDataSource(now)
+                        : new com.bank.financial.research.data.eastmoney.EastMoneyMacroDataSource(now);
+                com.bank.financial.research.macro.MacroReport mr;
+                try {
+                    mr = new com.bank.financial.research.macro.MacroReportEngine(
+                            msrc, rm, webExp(type), MemoryObserver.NOOP, () -> now)
+                            .generate(new ReportRequest(region, "MACRO", "web", "zh-CN", now, budget), progress);
+                } catch (RuntimeException macroErr) {
+                    sendNote(out, "实时宏观数据获取失败(" + macroErr.getMessage() + "),回退离线快照演示。");
+                    mr = new com.bank.financial.research.macro.MacroReportEngine(
+                            new com.bank.financial.research.data.stub.StubMacroDataSource(now),
+                            rm, webExp(type), MemoryObserver.NOOP, () -> now)
+                            .generate(new ReportRequest(region, "MACRO", "web", "zh-CN", now, budget), progress);
+                }
+                report.put("html", MdHtml.render(mr.toMarkdown()));
+                report.put("rating", mr.assetTilt());
+                report.put("metric1", "综合分 " + com.bank.financial.research.engine.Bb.fmt(mr.composite()));
+                report.put("metric2", "指标 " + mr.indicators().size() + " 项");
+                report.put("metric3", "区域 " + mr.region());
+                report.put("modelCalls", mr.metadata().modelCalls());
+                report.put("criticRounds", mr.metadata().criticRounds());
+                report.put("degradations", mr.metadata().degradations().size());
             } else if ("bond".equals(type)) {
                 send(out, "pipeline", Map.of("agents", BOND_AGENTS));
                 String code = orDefault(q.get("ticker"), "DEMOBOND");
                 BondReport br = new BondReportEngine(new StubBondDataSource(now), rm,
                         webExp(type), MemoryObserver.NOOP, () -> now)
-                        .generate(new ReportRequest(code, "EQUITY", "web", "zh-CN", now, budget), progress);
+                        .generate(new ReportRequest(code, "BOND", "web", "zh-CN", now, budget), progress);
                 report.put("html", MdHtml.render(br.toMarkdown()));
                 report.put("rating", br.stance());
                 report.put("metric1", "YTM " + com.bank.financial.research.engine.Bb.pct(br.metrics().ytm()));
@@ -462,7 +494,7 @@ public final class ResearchWebServer {
             <body>
             <header>
               <h1>研报生成 · 多智能体引擎</h1>
-              <div class="sub">基金 / 债券 / 板块策略 · 专家智能体共享黑板协作 · GLM-5.2 真实文笔或离线脚本</div>
+              <div class="sub">宏观政策 / 行业主题 / 基金 / 债券 · 专家智能体共享黑板协作 · GLM-5.2 真实文笔或离线脚本</div>
             </header>
             <div class="wrap">
               <!-- LEFT: config -->
@@ -470,9 +502,12 @@ public final class ResearchWebServer {
                 <h2>配置</h2>
                 <div class="field">
                   <label>报告类型</label>
+                  <div style="font-size:11px;color:var(--muted);margin:2px 0 4px">按视角</div>
+                  <label class="opt"><input type="radio" name="type" value="macro"/> 宏观与政策</label>
+                  <label class="opt"><input type="radio" name="type" value="thematic"/> 行业主题 / 板块策略</label>
+                  <div style="font-size:11px;color:var(--muted);margin:6px 0 4px">按标的</div>
                   <label class="opt"><input type="radio" name="type" value="fund" checked/> 基金 / FOF</label>
                   <label class="opt"><input type="radio" name="type" value="bond"/> 债券 / 固收</label>
-                  <label class="opt"><input type="radio" name="type" value="thematic"/> 行业主题 / 板块策略</label>
                 </div>
                 <div class="field">
                   <label>生成模型</label>
@@ -539,15 +574,17 @@ public final class ResearchWebServer {
             <script>
             (function(){
               var SOURCES={
+                macro:[["eastmoney","东方财富(免费真实:GDP/CPI/PMI/M2)"],["stub","快照(离线演示)"]],
                 thematic:[["stub","情景库(宏观/板块敞口)"]],
                 fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]],
                 bond:[["stub","桩(离线演示)"]]
               };
-              var DEFTICK={thematic:"中国 TMT",fund:"110011",bond:"DEMOBOND"};
-              var HINT={thematic:"输入主题/板块名(如 中国 TMT、半导体、新能源);走情景因子打分",
+              var DEFTICK={macro:"中国",thematic:"中国 TMT",fund:"110011",bond:"DEMOBOND"};
+              var HINT={macro:"宏观与政策报告;东财源实时取 GDP/CPI/PMI/M2(海外/监管为扩展项)",
+                        thematic:"输入主题/板块名(如 中国 TMT、半导体、新能源);走情景因子打分",
                         fund:"真实基金用 6 位代码(如 110011);桩演示任意",
                         bond:"债券为合成样例(免费实时债券数据难取);桩演示"};
-              var TICKLABEL={thematic:"主题 / 板块",fund:"基金代码",bond:"债券"};
+              var TICKLABEL={macro:"地区 / 范围",thematic:"主题 / 板块",fund:"基金代码",bond:"债券"};
               function renderSources(){
                 var type=document.querySelector('input[name=type]:checked').value;
                 var box=document.getElementById('sources'); box.innerHTML='';

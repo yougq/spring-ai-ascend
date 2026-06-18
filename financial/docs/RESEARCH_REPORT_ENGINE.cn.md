@@ -3,7 +3,7 @@
 > 金融行业智能体 · 归属 `financial/`(银行客户工作区)· 基于 spring-ai-ascend 平台与 `a2a-shared-memory` 共享记忆套件构建。
 > 包路径:`com.bank.financial.research`。
 >
-> **产品范围:** 本客户为商业银行,理财产品为**基金/FOF、债券/固收、行业主题/板块策略**三类,无单一股票二级研究,故不含「个股」研报。三类报告复用同一套架构:共享黑板单一事实源、确定性计算、单声道撰写、独立评审、合规治理、跨运行经验。
+> **产品范围:** 本客户为商业银行,无单一股票二级研究(不含「个股」研报)。报告按两个轴组织——**按视角**(宏观与政策、行业主题/板块策略)与**按标的**(基金/FOF、债券/固收)。四类复用同一套架构:共享黑板单一事实源、确定性计算、单声道撰写、独立评审、合规治理、跨运行经验。
 
 把"研究报告生产"建模为一支**研究小组的多智能体协作**:若干专精子智能体围绕一块**共享黑板(单一事实源)**分工,经"规划→数据→分析→首席收敛→撰写→评审→合规"的流水线,产出**评级/结论、关键指标与多章节长文一致**的研究报告。核心设计目标:**生成效果可控、数据接入可插拔、数字可计算可核验、风格与观点一致。**
 
@@ -18,12 +18,13 @@
 
 ---
 
-## 2. 三条产品线与子智能体
+## 2. 四类报告与子智能体
 
-三条流水线共享 `RunContext`(黑板/模型/预算/降级)、`ReportModel`、`PipelineProgress`、经验与可观测;各自有专精 agent 与确定性计算骨架。
+四条流水线共享 `RunContext`(黑板/模型/预算/降级)、`ReportModel`、`PipelineProgress`、经验与可观测;各自有专精 agent 与确定性计算骨架。
 
 | 报告类型 | 引擎 | 智能体(role) | 数字骨架(确定性计算) |
 |---|---|---|---|
+| **宏观与政策** | `MacroReportEngine` | planner / data(指标录入)/ analysis / lead-manager(策略) / writer / critic / compliance | `MacroCalc`:增长/通胀/景气/流动性打分 → 综合分 + 资产配置倾向(权益/债券/中性) |
 | **基金 / FOF** | `FundReportEngine` | planner / data(NAV 录入)/ performance / risk / lead-manager / writer / critic / compliance | `FundCalc`:累计/年化收益、年化波动、夏普、最大回撤、Calmar、α-β |
 | **债券 / 固收** | `BondReportEngine` | planner / data / rates / credit / lead-manager / writer / critic / compliance | `BondCalc`:YTM(二分)、Macaulay/修正久期、凸性、信用利差、久期 stance |
 | **行业主题 / 板块策略** | `ThematicReportEngine` | planner / data(宏观录入)/ sector-impact / lead-manager / writer / critic / compliance | `SectorImpactModel`:宏观因子(方向×强度)× 子板块敞口 → 复合影响分 → 超配/标配/低配 |
@@ -32,7 +33,7 @@
 
 ---
 
-## 3. 共享架构(三类通用)
+## 3. 共享架构(四类通用)
 
 1. **黑板 = 单一事实源**:每个数字只由一个 owner 写一次;撰写环节只引用,不二次推算(`a2a-shared-memory` 的 ownership + append-log + provenance 保障)。摘要/正文各节引用同一黑板键,从根上杜绝跨章节漂移。
 2. **结论为脊柱 + 固定大纲**:规划阶段先定结论与章节,撰写/评审都校验各节回链结论。
@@ -58,9 +59,10 @@
 
 ## 5. 数据接入(`research.data`)
 
-- **SPI**:`FundDataSource` / `BondDataSource` / `ThematicDataSource`,一家实现 = 一个数据提供方;失败抛 `DataUnavailableException`(独立异常类),调用方优雅降级而非泄漏栈。
+- **SPI**:`MacroDataSource` / `FundDataSource` / `BondDataSource` / `ThematicDataSource`,一家实现 = 一个数据提供方;失败抛 `DataUnavailableException`(独立异常类),调用方优雅降级而非泄漏栈。
 - **离线**:`StubFundDataSource` / `StubBondDataSource` / `StubThematicDataSource`(数字固定 → 测试/演示确定性可复现)。
 - **免费真实(基金)**:`EastMoneyFundDataSource`——天天基金 `lsjz` 累计净值历史(已处理每页 20 条的分页上限)+ `fundgz` 名称;对真实响应校准过。
+- **免费真实(宏观)**:`EastMoneyMacroDataSource`——东财 datacenter 经济数据:GDP(`RPT_ECONOMY_GDP`)、CPI(`RPT_ECONOMY_CPI`)、制造业 PMI(`RPT_ECONOMY_PMI`)、M2(`RPT_ECONOMY_CURRENCY_SUPPLY`);每项独立抓取、失败逐项跳过并记告警;海外(FOMC/美国数据)与监管文字为扩展项,接入点已就绪。
 - **新鲜度 / 溯源**:`FreshnessPolicy` 做新鲜度窗口,过期**标注而非静默丢弃**;每个数据点带 `Provenance`(来源/类型/as-of/引用/置信度),供合规披露与评审核验。
 - 债券实时数据难取 → 债券走合成样例 + 真实 `BondCalc`;主题走情景库(可接实时事件流)。
 
@@ -79,7 +81,7 @@
 ## 7. 如何运行
 
 ```bash
-# Web 演示台:报告类型(基金/债券/主题)+ 数据源 + 生成模型(GLM-5.2 真实 / 离线脚本)可选;
+# Web 演示台:报告类型(宏观/行业主题/基金/债券)+ 数据源 + 生成模型(GLM-5.2 真实 / 离线脚本)可选;
 # 实时点亮 Agent、共享黑板、协作流、跨运行经验、报告预览。
 ./financial/play-web.sh          # http://localhost:8088
 # (自动从全局 GLM 凭据注入 BANK_LLM_*;未配置则回退离线脚本)
@@ -98,12 +100,12 @@
 
 ## 8. 诚实自检 — 已达成 vs 边界
 
-**已达成(离线可复现、有测试,49/49):** 三条流水线(基金/债券/主题)共享黑板架构;纯 Java 金融计算全单测;黑板单一事实源 + 一致性门 + 有界改稿 + 合规披露;数据 SPI + 容错降级 + 新鲜度 + 溯源;跨运行经验蒸馏/召回;预算/超时/退避/可观测;Web 演示台(三类 + 模型选择 + 可视化)。
+**已达成(离线可复现、有测试,54/54):** 四条流水线(宏观/基金/债券/主题)共享黑板架构;纯 Java 金融计算全单测;黑板单一事实源 + 一致性门 + 有界改稿 + 合规披露;数据 SPI + 容错降级 + 新鲜度 + 溯源;跨运行经验蒸馏/召回;预算/超时/退避/可观测;Web 演示台(四类 + 模型选择 + 可视化)。
 
-**✅ 真实模型验证**:以 GLM Coding Plan(glm-5.2/glm-4.6)端到端跑通基金/债券/主题,**0 降级、0 一致性问题**(数字全来自计算)。
+**✅ 真实模型验证**:以 GLM Coding Plan(glm-5.2/glm-4.6)端到端跑通宏观/基金/债券/主题(宏观为东财真实 GDP/CPI/PMI/M2),**0 降级、0 一致性问题**(数字全来自计算)。
 
 **边界(明确披露):**
 - 债券走合成样例(免费实时债券数据难取),BondCalc 为真实计算;主题走情景库(可接实时事件流)。
-- 宏观为**文档化参考快照**(provenance 明标"非实时,以官方发布为准"),非实时宏观源。
+- 宏观国内核心指标(GDP/CPI/PMI/M2)为东财 datacenter **真实数据**;海外(FOMC/美国数据)与监管政策文字为扩展项,接入点已就绪但暂未实接。
 - 真实模型测试需 JVM 出网(代理或直连)。
 - 适用档:**生产级方向的可运行垂直切片**,符合"分析师增强、人工/SA 签发"的定位,非完整可发布产品。

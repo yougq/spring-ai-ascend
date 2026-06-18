@@ -4,8 +4,10 @@ import com.bank.financial.kit.ModelConnection;
 import com.bank.financial.research.bond.BondReportEngine;
 import com.bank.financial.research.data.stub.StubBondDataSource;
 import com.bank.financial.research.data.stub.StubFundDataSource;
+import com.bank.financial.research.data.stub.StubMacroDataSource;
 import com.bank.financial.research.data.stub.StubThematicDataSource;
 import com.bank.financial.research.fund.FundReportEngine;
+import com.bank.financial.research.macro.MacroReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.model.RetryReportModel;
@@ -60,6 +62,14 @@ public final class ResearchReports {
     public static BondReportEngine bondOffline(long asOfEpochMs) {
         return new BondReportEngine(
                 new StubBondDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
+    }
+
+    // ── Macro & policy engine ─────────────────────────────────────────────────
+
+    /** Fully offline macro engine (fixed snapshot stub + scripted model). */
+    public static MacroReportEngine macroOffline(long asOfEpochMs) {
+        return new MacroReportEngine(
+                new StubMacroDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
     }
 
     // ── Model wiring ──────────────────────────────────────────────────────────
