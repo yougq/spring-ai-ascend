@@ -137,14 +137,20 @@ public final class ResearchWebServer {
         OutputStream os = null;
         try {
             Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
-            String type = q.getOrDefault("type", "fund");
-            String source = q.getOrDefault("source", "eastmoney");
-            String ticker = orDefault(q.get("ticker"), "110011");
-            long pace = parseLong(q.get("pace"), 250L);
-            // Model choice: "glm" = live LLM (real prose) when configured, else scripted.
-            boolean wantLive = "glm".equals(q.getOrDefault("model", "glm"));
-            boolean usingLive = wantLive && ResearchReports.glmConfigured();
-            final ReportModel rm = ResearchReports.webModel(wantLive);
+            // New model: one SUBJECT (fund/bond/none) + multiple LENSES (macro/industry/sector/global)
+            // composed into one report, run through a chosen MODEL (or the 3-way compare).
+            String subject = q.getOrDefault("subject", "fund");      // fund | bond | none
+            String code = orDefault(q.get("code"), "");
+            java.util.Set<String> lenses = new java.util.LinkedHashSet<>();
+            for (String l : q.getOrDefault("lenses", "").split(",")) {
+                l = l.trim();
+                if (!l.isEmpty()) {
+                    lenses.add(l);
+                }
+            }
+            boolean real = !"offline".equals(q.getOrDefault("source", "real")); // real(东财/天天基金) | offline
+            String modelId = q.getOrDefault("model", "glm-air");      // glm-air | deepseek | script | compare
+            long pace = parseLong(q.get("pace"), 150L);
 
             ex.getResponseHeaders().set("Content-Type", "text/event-stream;charset=utf-8");
             ex.getResponseHeaders().set("Cache-Control", "no-cache");
@@ -189,105 +195,63 @@ public final class ResearchWebServer {
                 }
             };
 
-            if (wantLive && !usingLive) {
-                sendNote(out, "未检测到 GLM 配置(BANK_LLM_*),本次用离线脚本模型生成;在 play-web.sh 注入 GLM_* 后可切换真实模型(glm-5.2)。");
-            }
-            // Live runs are slow per call, so cap the writer↔critic loop to keep the
-            // demo responsive; offline scripted runs use the full standard budget.
-            ReportBudget budget = usingLive
-                    ? new ReportBudget(1, 8000, 30, 4 * 60 * 1000L)
-                    : ReportBudget.standard();
-
-            Map<String, Object> report = new LinkedHashMap<>();
-            if ("thematic".equals(type)) {
-                send(out, "pipeline", Map.of("agents", THEMATIC_AGENTS));
-                String theme = orDefault(q.get("ticker"), "中国 TMT");
-                ThematicReport tr = new ThematicReportEngine(
-                        new StubThematicDataSource(now), rm, webExp(type), MemoryObserver.NOOP, () -> now)
-                        .generate(new ReportRequest(theme, "INDUSTRY", "web", "zh-CN", now, budget), progress);
-                report.put("html", MdHtml.render(tr.toMarkdown()));
-                report.put("rating", tr.overallRating());
-                report.put("metric1", "综合影响分 " + com.bank.financial.research.engine.Bb.fmt(tr.overallScore()));
-                report.put("metric2", "子板块 " + tr.subSectors().size() + " 个");
-                report.put("metric3", "超配 " + tr.subSectors().stream()
-                        .filter(s -> s.rating().contains("超配")).count() + " · 低配 "
-                        + tr.subSectors().stream().filter(s -> s.rating().contains("低配")).count());
-                report.put("modelCalls", tr.metadata().modelCalls());
-                report.put("criticRounds", tr.metadata().criticRounds());
-                report.put("degradations", tr.metadata().degradations().size());
-            } else if ("macro".equals(type)) {
-                send(out, "pipeline", Map.of("agents", MACRO_AGENTS));
-                String region = orDefault(q.get("ticker"), "中国");
-                com.bank.financial.research.data.MacroDataSource msrc = "stub".equals(source)
-                        ? new com.bank.financial.research.data.stub.StubMacroDataSource(now)
-                        : new com.bank.financial.research.data.eastmoney.EastMoneyMacroDataSource(now);
-                com.bank.financial.research.macro.MacroReport mr;
-                try {
-                    mr = new com.bank.financial.research.macro.MacroReportEngine(
-                            msrc, rm, webExp(type), MemoryObserver.NOOP, () -> now)
-                            .generate(new ReportRequest(region, "MACRO", "web", "zh-CN", now, budget), progress);
-                } catch (RuntimeException macroErr) {
-                    sendNote(out, "实时宏观数据获取失败(" + macroErr.getMessage() + "),回退离线快照演示。");
-                    mr = new com.bank.financial.research.macro.MacroReportEngine(
-                            new com.bank.financial.research.data.stub.StubMacroDataSource(now),
-                            rm, webExp(type), MemoryObserver.NOOP, () -> now)
-                            .generate(new ReportRequest(region, "MACRO", "web", "zh-CN", now, budget), progress);
-                }
-                report.put("html", MdHtml.render(mr.toMarkdown()));
-                report.put("rating", mr.assetTilt());
-                report.put("metric1", "综合分 " + com.bank.financial.research.engine.Bb.fmt(mr.composite()));
-                report.put("metric2", "指标 " + mr.indicators().size() + " 项");
-                report.put("metric3", "区域 " + mr.region());
-                report.put("modelCalls", mr.metadata().modelCalls());
-                report.put("criticRounds", mr.metadata().criticRounds());
-                report.put("degradations", mr.metadata().degradations().size());
-            } else if ("bond".equals(type)) {
-                send(out, "pipeline", Map.of("agents", BOND_AGENTS));
-                String code = orDefault(q.get("ticker"), "DEMOBOND");
-                BondReport br = new BondReportEngine(new StubBondDataSource(now), rm,
-                        webExp(type), MemoryObserver.NOOP, () -> now)
-                        .generate(new ReportRequest(code, "BOND", "web", "zh-CN", now, budget), progress);
-                report.put("html", MdHtml.render(br.toMarkdown()));
-                report.put("rating", br.stance());
-                report.put("metric1", "YTM " + com.bank.financial.research.engine.Bb.pct(br.metrics().ytm()));
-                report.put("metric2", "修正久期 " + com.bank.financial.research.engine.Bb.fmt(br.metrics().modified()));
-                report.put("metric3", "信用利差 " + com.bank.financial.research.engine.Bb.pct(br.metrics().creditSpread()));
-                report.put("modelCalls", br.metadata().modelCalls());
-                report.put("criticRounds", br.metadata().criticRounds());
-                report.put("degradations", br.metadata().degradations().size());
-            } else {
-                // Fund / FOF — the default report type for this bank.
-                send(out, "pipeline", Map.of("agents", FUND_AGENTS));
-                String code = orDefault(q.get("ticker"), "110011");
-                FundDataSource fundSource = "stub".equals(source)
-                        ? new StubFundDataSource(now) : new EastMoneyFundDataSource(now);
-                String usedCode = code;
-                FundReport fr;
-                try {
-                    fr = new FundReportEngine(fundSource, rm, webExp(type), MemoryObserver.NOOP, () -> now)
-                            .generate(new ReportRequest(code, "FUND", "web", "zh-CN", now, budget), progress);
-                } catch (RuntimeException fundErr) {
-                    sendNote(out, "实时基金数据获取失败(" + fundErr.getMessage() + "),回退桩数据演示。");
-                    fundSource = new StubFundDataSource(now);
-                    usedCode = "DEMOFUND";
-                    fr = new FundReportEngine(fundSource, rm, webExp(type), MemoryObserver.NOOP, () -> now)
-                            .generate(new ReportRequest(usedCode, "FUND", "web", "zh-CN", now, budget), progress);
-                }
-                report.put("html", MdHtml.render(fr.toMarkdown()));
-                report.put("rating", fr.overallRating());
-                report.put("metric1", "夏普 " + com.bank.financial.research.engine.Bb.fmt(fr.metrics().sharpe()));
-                report.put("metric2", "年化 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().annReturn()));
-                report.put("metric3", "回撤 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().maxDrawdown()));
-                report.put("modelCalls", fr.metadata().modelCalls());
-                report.put("criticRounds", fr.metadata().criticRounds());
-                report.put("degradations", fr.metadata().degradations().size());
-                send(out, "report", report);
-                sendExperience(out, type);
+            final java.util.Set<String> lensesF = lenses;
+            List<Map<String, String>> roster =
+                    com.bank.financial.research.composite.CompositeReportEngine.modulesFor(subject, lenses);
+            if (roster.isEmpty()) {
+                sendNote(out, "请至少选择一个标的,或勾选一个分析视角。");
                 send(out, "done", Map.of());
                 return;
             }
+            send(out, "pipeline", Map.of("agents", roster));
+
+            if ("compare".equals(modelId)) {
+                // Three-way model comparison: same composed report, three models, side by side.
+                String[][] tiers = {{"glm-air", "GLM-4.5-air"}, {"deepseek", "DeepSeek-V4-Flash"}, {"script", "桩(离线)"}};
+                List<Map<String, Object>> results = new java.util.ArrayList<>();
+                boolean first = true;
+                for (String[] t : tiers) {
+                    ReportModel m = ResearchReports.modelChoice(t[0]);
+                    long t0 = System.currentTimeMillis();
+                    com.bank.financial.research.composite.CompositeReport cr =
+                            new com.bank.financial.research.composite.CompositeReportEngine(
+                                    m, webExp("composite"), MemoryObserver.NOOP, () -> now, now, real)
+                                    .generate(subject, code, lensesF, first ? progress : PipelineProgress.NOOP);
+                    first = false;
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("model", t[1]);
+                    r.put("live", ResearchReports.isLive(t[0]));
+                    r.put("html", MdHtml.render(cr.toMarkdown()));
+                    r.put("elapsedMs", System.currentTimeMillis() - t0);
+                    r.put("modelCalls", cr.metadata().modelCalls());
+                    r.put("degradations", cr.metadata().degradations().size());
+                    r.put("chars", cr.charCount());
+                    results.add(r);
+                }
+                send(out, "compare", Map.of("results", results));
+                send(out, "done", Map.of());
+                return;
+            }
+
+            // Single model.
+            if (!"script".equals(modelId) && !ResearchReports.isLive(modelId)) {
+                sendNote(out, "未检测到该模型的配置(" + modelId + "),本次回退脚本模型;在 play-web.sh 注入对应凭据后可用真实模型。");
+            }
+            ReportModel m = ResearchReports.modelChoice(modelId);
+            com.bank.financial.research.composite.CompositeReport cr =
+                    new com.bank.financial.research.composite.CompositeReportEngine(
+                            m, webExp("composite"), MemoryObserver.NOOP, () -> now, now, real)
+                            .generate(subject, code, lensesF, progress);
+            Map<String, Object> report = new LinkedHashMap<>();
+            report.put("html", MdHtml.render(cr.toMarkdown()));
+            report.put("rating", cr.subtitle());
+            report.put("metric1", "模块 " + cr.modules().size() + " 个");
+            report.put("metric2", "模型 " + cr.metadata().modelName());
+            report.put("metric3", real ? "数据 真实/快照" : "数据 离线");
+            report.put("modelCalls", cr.metadata().modelCalls());
+            report.put("criticRounds", 0);
+            report.put("degradations", cr.metadata().degradations().size());
             send(out, "report", report);
-            sendExperience(out, type);
             send(out, "done", Map.of());
         } catch (Exception e) {
             if (os != null) {
@@ -501,32 +465,36 @@ public final class ResearchWebServer {
               <div class="card">
                 <h2>配置</h2>
                 <div class="field">
-                  <label>报告类型</label>
-                  <div style="font-size:11px;color:var(--muted);margin:2px 0 4px">按视角</div>
-                  <label class="opt"><input type="radio" name="type" value="macro"/> 宏观与政策</label>
-                  <label class="opt"><input type="radio" name="type" value="thematic"/> 行业主题 / 板块策略</label>
-                  <div style="font-size:11px;color:var(--muted);margin:6px 0 4px">按标的</div>
-                  <label class="opt"><input type="radio" name="type" value="fund" checked/> 基金 / FOF</label>
-                  <label class="opt"><input type="radio" name="type" value="bond"/> 债券 / 固收</label>
+                  <label>① 标的(单选)</label>
+                  <label class="opt"><input type="radio" name="subject" value="fund" checked/> 基金 / FOF</label>
+                  <label class="opt"><input type="radio" name="subject" value="bond"/> 债券 / 固收</label>
+                  <label class="opt"><input type="radio" name="subject" value="none"/> 无特定标的(纯宏观·策略)</label>
+                  <input type="text" id="code" value="110011" autocomplete="off" style="margin-top:6px"/>
+                  <div id="codehint" style="font-size:11px;color:var(--muted);margin-top:5px;"></div>
                 </div>
                 <div class="field">
-                  <label>生成模型</label>
-                  <label class="opt"><input type="radio" name="model" value="glm" checked/> GLM-5.2(真实文笔,较慢)</label>
-                  <label class="opt"><input type="radio" name="model" value="script"/> 脚本(离线确定性,秒出)</label>
-                  <div style="font-size:11px;color:var(--muted);margin-top:5px;">数字始终由计算引擎给出;模型只负责把事实写成机构级散文。未配置 GLM 时自动回退脚本。</div>
+                  <label>② 分析维度(可多选,叠加到标的)</label>
+                  <label class="opt"><input type="checkbox" name="lens" value="macro"/> 宏观与政策</label>
+                  <label class="opt"><input type="checkbox" name="lens" value="industry"/> 行业主题</label>
+                  <label class="opt"><input type="checkbox" name="lens" value="sector"/> 板块策略</label>
+                  <label class="opt"><input type="checkbox" name="lens" value="global"/> 全球影响(定性·待接海外源)</label>
                 </div>
                 <div class="field">
                   <label>数据源</label>
-                  <div id="sources"></div>
+                  <label class="opt"><input type="radio" name="source" value="real" checked/> 真实(东财/天天基金,失败回退)</label>
+                  <label class="opt"><input type="radio" name="source" value="offline"/> 离线(桩/快照)</label>
                 </div>
                 <div class="field">
-                  <label id="ticklabel">标的代码</label>
-                  <input type="text" id="ticker" value="600519.SH" autocomplete="off"/>
-                  <div id="tickhint" style="font-size:11px;color:var(--muted);margin-top:5px;"></div>
+                  <label>③ 生成模型</label>
+                  <label class="opt"><input type="radio" name="model" value="glm-air" checked/> GLM-4.5-air(快)</label>
+                  <label class="opt"><input type="radio" name="model" value="deepseek"/> DeepSeek-V4-Flash</label>
+                  <label class="opt"><input type="radio" name="model" value="script"/> 桩(离线秒出)</label>
+                  <label class="opt"><input type="radio" name="model" value="compare"/> 三档对比(三模型并排)</label>
+                  <div style="font-size:11px;color:var(--muted);margin-top:5px;">数字始终由计算引擎给出;模型只写散文。未配置的模型自动回退桩。</div>
                 </div>
                 <div class="field">
-                  <label>演示节奏 <span class="paceval" id="paceval">250 ms</span></label>
-                  <input type="range" id="pace" min="0" max="1000" step="50" value="250"/>
+                  <label>演示节奏 <span class="paceval" id="paceval">150 ms</span></label>
+                  <input type="range" id="pace" min="0" max="1000" step="50" value="150"/>
                 </div>
                 <button id="go">生成研报</button>
                 <div class="note" id="note"></div>
@@ -573,35 +541,20 @@ public final class ResearchWebServer {
 
             <script>
             (function(){
-              var SOURCES={
-                macro:[["eastmoney","东方财富(免费真实:GDP/CPI/PMI/M2)"],["stub","快照(离线演示)"]],
-                thematic:[["stub","情景库(宏观/板块敞口)"]],
-                fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]],
-                bond:[["stub","桩(离线演示)"]]
-              };
-              var DEFTICK={macro:"中国",thematic:"中国 TMT",fund:"110011",bond:"DEMOBOND"};
-              var HINT={macro:"宏观与政策报告;东财源实时取 GDP/CPI/PMI/M2(海外/监管为扩展项)",
-                        thematic:"输入主题/板块名(如 中国 TMT、半导体、新能源);走情景因子打分",
-                        fund:"真实基金用 6 位代码(如 110011);桩演示任意",
-                        bond:"债券为合成样例(免费实时债券数据难取);桩演示"};
-              var TICKLABEL={macro:"地区 / 范围",thematic:"主题 / 板块",fund:"基金代码",bond:"债券"};
-              function renderSources(){
-                var type=document.querySelector('input[name=type]:checked').value;
-                var box=document.getElementById('sources'); box.innerHTML='';
-                SOURCES[type].forEach(function(s,i){
-                  var lab=document.createElement('label'); lab.className='opt';
-                  lab.innerHTML='<input type="radio" name="source" value="'+s[0]+'"'+
-                    (i===0?' checked':'')+'/> '+s[1];
-                  box.appendChild(lab);
-                });
-                document.getElementById('ticker').value=DEFTICK[type];
-                document.getElementById('tickhint').textContent=HINT[type];
-                document.getElementById('ticklabel').textContent=TICKLABEL[type]||'标的代码';
+              var DEFCODE={fund:"110011",bond:"DEMOBOND",none:""};
+              var CODEHINT={fund:"真实基金用 6 位代码(如 110011);离线源任意",
+                            bond:"债券为合成样例(免费实时债券数据难取)",
+                            none:"无需代码;直接出纯宏观 / 策略组合"};
+              function subjectVal(){ return document.querySelector('input[name=subject]:checked').value; }
+              function renderSubject(){
+                var s=subjectVal(), code=document.getElementById('code');
+                code.value=DEFCODE[s]; code.style.display=(s==='none')?'none':'';
+                document.getElementById('codehint').textContent=CODEHINT[s];
               }
-              Array.prototype.forEach.call(document.querySelectorAll('input[name=type]'),function(r){
-                r.addEventListener('change',renderSources);
+              Array.prototype.forEach.call(document.querySelectorAll('input[name=subject]'),function(r){
+                r.addEventListener('change',renderSubject);
               });
-              renderSources();
+              renderSubject();
 
               var chipEl={}, total=0;
               var agentWrote={};   // role -> {key:value,...} accumulated from agent-detail
@@ -715,12 +668,19 @@ public final class ResearchWebServer {
                 document.getElementById('note').textContent='';
                 document.getElementById('preview').innerHTML='<div class="empty">流水线运行中 ——</div>';
                 go.disabled=true; go.textContent='生成中…';
-                var type=document.querySelector('input[name=type]:checked').value;
+                var subject=subjectVal();
                 var source=document.querySelector('input[name=source]:checked').value;
                 var model=document.querySelector('input[name=model]:checked').value;
-                var ticker=encodeURIComponent(document.getElementById('ticker').value||'');
-                es=new EventSource('/api/run?type='+type+'&source='+source+'&model='+model+
-                  '&ticker='+ticker+'&pace='+pace.value);
+                var code=encodeURIComponent(document.getElementById('code').value||'');
+                var lenses=[];
+                Array.prototype.forEach.call(document.querySelectorAll('input[name=lens]:checked'),
+                  function(c){ lenses.push(c.value); });
+                if(subject==='none' && lenses.length===0){
+                  document.getElementById('note').textContent='请至少勾选一个分析维度,或选择一个标的。';
+                  finish(); return;
+                }
+                es=new EventSource('/api/run?subject='+subject+'&code='+code+'&source='+source+
+                  '&model='+model+'&lenses='+encodeURIComponent(lenses.join(','))+'&pace='+pace.value);
                 es.addEventListener('pipeline',function(e){ buildChips(JSON.parse(e.data).agents); });
                 es.addEventListener('agent',function(e){
                   var d=JSON.parse(e.data), el=chipEl[d.role]; if(!el) return;
@@ -760,6 +720,27 @@ public final class ResearchWebServer {
                     '<span class="badge">改稿轮数 <b>'+d.criticRounds+'</b></span>'+
                     '<span class="'+degClass+'">降级 <b>'+d.degradations+'</b></span>';
                   document.getElementById('preview').innerHTML=d.html;
+                });
+                es.addEventListener('compare',function(e){
+                  var rs=(JSON.parse(e.data).results)||[]; if(!rs.length) return;
+                  // tabs of the three models; click to switch the preview
+                  var tabs=rs.map(function(r,i){
+                    var live=r.live?'':'(未配置·回退桩)';
+                    return '<span class="badge cmptab" data-i="'+i+'" style="cursor:pointer">'+
+                      esc(r.model)+live+' · '+(r.elapsedMs/1000).toFixed(1)+'s · 调用'+r.modelCalls+
+                      ' · 降级'+r.degradations+'</span>';
+                  }).join('');
+                  document.getElementById('badges').innerHTML=
+                    '<span class="badge">三档模型对比(同一篇·同数据)</span>'+tabs;
+                  function showTab(i){
+                    document.getElementById('preview').innerHTML=rs[i].html;
+                    Array.prototype.forEach.call(document.querySelectorAll('.cmptab'),function(t){
+                      t.style.outline=(+t.dataset.i===i)?'2px solid var(--accent)':'none'; });
+                  }
+                  Array.prototype.forEach.call(document.querySelectorAll('.cmptab'),function(t){
+                    t.addEventListener('click',function(){ showTab(+t.dataset.i); });
+                  });
+                  showTab(0);
                 });
                 es.addEventListener('error',function(e){
                   var msg='连接中断'; try{ if(e.data){ msg=JSON.parse(e.data).message||msg; } }catch(_){}
