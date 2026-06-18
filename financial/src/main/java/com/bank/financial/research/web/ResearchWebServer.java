@@ -63,6 +63,12 @@ public final class ResearchWebServer {
         return WEB_EXP.computeIfAbsent(type, k -> new InMemoryExperienceStore());
     }
 
+    // Per-run pause flags (runId → paused). The /api/run worker waits between agents while
+    // its flag is set; /api/control flips it. Cooperative pause: the in-flight agent finishes,
+    // then the pipeline holds before the next agent until resumed.
+    private static final java.util.Map<String, java.util.concurrent.atomic.AtomicBoolean> PAUSED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private static final List<Map<String, String>> FUND_AGENTS = List.of(
             Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
             Map.of("role", "performance", "label", "业绩"), Map.of("role", "risk", "label", "风险"),
@@ -97,6 +103,7 @@ public final class ResearchWebServer {
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.createContext("/", ResearchWebServer::handlePage);
         server.createContext("/api/run", ResearchWebServer::handleRun);
+        server.createContext("/api/control", ResearchWebServer::handleControl);
         server.start();
         System.out.println("research web on http://localhost:" + port);
     }
@@ -132,11 +139,41 @@ public final class ResearchWebServer {
         }
     }
 
+    // ── GET /api/control?run=<id>&action=pause|resume ──────────────────────────
+    private static void handleControl(HttpExchange ex) {
+        try {
+            Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
+            String runId = q.get("run");
+            String action = q.getOrDefault("action", "");
+            java.util.concurrent.atomic.AtomicBoolean flag = runId == null ? null : PAUSED.get(runId);
+            if (flag != null) {
+                if ("pause".equals(action)) {
+                    flag.set(true);
+                } else if ("resume".equals(action)) {
+                    flag.set(false);
+                }
+            }
+            byte[] body = ("{\"ok\":true,\"paused\":" + (flag != null && flag.get()) + "}")
+                    .getBytes(StandardCharsets.UTF_8);
+            ex.getResponseHeaders().set("Content-Type", "application/json;charset=utf-8");
+            ex.sendResponseHeaders(200, body.length);
+            try (OutputStream o = ex.getResponseBody()) {
+                o.write(body);
+            }
+        } catch (IOException e) {
+            // client gone
+        } finally {
+            ex.close();
+        }
+    }
+
     // ── GET /api/run  → SSE ─────────────────────────────────────────────────────
     private static void handleRun(HttpExchange ex) {
         OutputStream os = null;
         final java.util.concurrent.atomic.AtomicBoolean alive = new java.util.concurrent.atomic.AtomicBoolean(true);
         final Thread[] hb = new Thread[1];
+        final java.util.concurrent.atomic.AtomicBoolean paused = new java.util.concurrent.atomic.AtomicBoolean(false);
+        String runId = null;
         try {
             Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
             // New model: one SUBJECT (fund/bond/none) + multiple LENSES (macro/industry/sector/global)
@@ -153,6 +190,10 @@ public final class ResearchWebServer {
             boolean real = !"offline".equals(q.getOrDefault("source", "real")); // real(东财/天天基金) | offline
             String modelId = q.getOrDefault("model", "glm-air");      // glm-air | deepseek | script | compare
             long pace = parseLong(q.get("pace"), 150L);
+            runId = q.get("run");
+            if (runId != null && !runId.isBlank()) {
+                PAUSED.put(runId, paused);
+            }
 
             ex.getResponseHeaders().set("Content-Type", "text/event-stream;charset=utf-8");
             ex.getResponseHeaders().set("Cache-Control", "no-cache");
@@ -233,6 +274,15 @@ public final class ResearchWebServer {
 
                         @Override
                         public void agent(String role, String state, int index, int total) {
+                            // Cooperative pause: hold before each agent transition while paused.
+                            while (paused.get()) {
+                                try {
+                                    Thread.sleep(200);
+                                } catch (InterruptedException ie) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
                             send(out, "agent", Map.of("role", role, "state", state, "index", index, "total", total));
                             if ("running".equals(state) && paceF > 0) {
                                 try {
@@ -287,6 +337,9 @@ public final class ResearchWebServer {
             alive.set(false);
             if (hb[0] != null) {
                 hb[0].interrupt();
+            }
+            if (runId != null) {
+                PAUSED.remove(runId);
             }
             if (os != null) {
                 try {
@@ -423,6 +476,9 @@ public final class ResearchWebServer {
                 padding:11px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
               button:hover{background:var(--accent2)}
               button:disabled{opacity:.5;cursor:not-allowed}
+              .btn-go{background:var(--green)} .btn-go:hover{background:#268839}
+              .btn-stop{background:#d1242f} .btn-stop:hover{background:#b21e28}
+              .btn-resume{background:#f59e0b;color:#1a1205} .btn-resume:hover{background:#d8890a}
               .right{display:flex;flex-direction:column;gap:18px;min-width:0}
               .pipe-head{display:flex;justify-content:space-between;align-items:baseline;
                 margin-bottom:12px}
@@ -517,7 +573,10 @@ public final class ResearchWebServer {
                   <label>演示节奏 <span class="paceval" id="paceval">150 ms</span></label>
                   <input type="range" id="pace" min="0" max="1000" step="50" value="150"/>
                 </div>
-                <button id="go">生成研报</button>
+                <div style="display:flex;gap:8px">
+                  <button id="go" class="btn-go">开始生成</button>
+                  <button id="toggle" class="btn-stop" style="display:none">停止</button>
+                </div>
                 <div class="note" id="note"></div>
               </div>
 
@@ -687,6 +746,14 @@ public final class ResearchWebServer {
               pace.addEventListener('input',function(){paceval.textContent=pace.value+' ms';});
 
               var go=document.getElementById('go'), es=null;
+              var toggleBtn=document.getElementById('toggle'), runId=null, paused=false;
+              toggleBtn.addEventListener('click',function(){
+                if(!runId) return;
+                paused=!paused;
+                fetch('/api/control?run='+encodeURIComponent(runId)+'&action='+(paused?'pause':'resume')).catch(function(){});
+                if(paused){ toggleBtn.textContent='继续'; toggleBtn.className='btn-resume'; }
+                else { toggleBtn.textContent='停止'; toggleBtn.className='btn-stop'; }
+              });
               go.addEventListener('click',function(){
                 if(es){es.close();}
                 document.getElementById('chips').innerHTML=''; chipEl={}; total=0;
@@ -702,15 +769,17 @@ public final class ResearchWebServer {
                 document.getElementById('note').textContent='';
                 document.getElementById('preview').innerHTML='<div class="empty">流水线运行中 ——</div>';
                 go.disabled=true; go.textContent='生成中…';
+                runId='r'+Date.now()+Math.floor(Math.random()*1e6); paused=false;
+                toggleBtn.style.display=''; toggleBtn.textContent='停止'; toggleBtn.className='btn-stop';
                 var subject=subjectVal();
                 var source=document.querySelector('input[name=source]:checked').value;
                 var model=document.querySelector('input[name=model]:checked').value;
                 var code=encodeURIComponent(document.getElementById('code').value||'');
                 es=new EventSource('/api/run?subject='+subject+'&code='+code+'&source='+source+
-                  '&model='+model+'&lenses=&pace='+pace.value);
+                  '&model='+model+'&lenses=&run='+encodeURIComponent(runId)+'&pace='+pace.value);
                 es.addEventListener('tick',function(e){
                   var s=Math.round((JSON.parse(e.data).elapsedMs||0)/1000);
-                  go.textContent='生成中… '+s+'s'; document.title='('+s+'s) 研报生成';
+                  go.textContent=(paused?'已暂停… ':'生成中… ')+s+'s'; document.title='('+s+'s) 研报生成';
                 });
                 es.addEventListener('stage',function(e){
                   var d=JSON.parse(e.data); addStage(d.title||d.key, d.agents||[]);
@@ -810,7 +879,10 @@ public final class ResearchWebServer {
                   finish();
                 });
               });
-              function finish(){ if(es){es.close();es=null;} go.disabled=false; go.textContent='生成研报'; document.title='研报生成 · 多智能体引擎'; }
+              function finish(){ if(es){es.close();es=null;} go.disabled=false; go.textContent='开始生成';
+                document.title='研报生成 · 多智能体引擎';
+                toggleBtn.style.display='none'; toggleBtn.textContent='停止'; toggleBtn.className='btn-stop';
+                runId=null; paused=false; }
               function esc(s){
                 return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
               }
