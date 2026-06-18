@@ -81,10 +81,11 @@
 ## 7. 如何运行
 
 ```bash
-# Web 演示台:报告类型(宏观/行业主题/基金/债券)+ 数据源 + 生成模型(GLM-5.2 真实 / 离线脚本)可选;
-# 实时点亮 Agent、共享黑板、协作流、跨运行经验、报告预览。
+# Web 演示台(组合式):① 标的(基金/债券/无特定标的,单选+代码)② 分析维度(宏观政策/行业主题/
+# 板块策略/全球影响,多选,叠加到标的组合成一篇)③ 生成模型(GLM-4.5-air / DeepSeek-V4-Flash / 桩 /
+# 三档对比并排)。CompositeReportEngine 复用各引擎为"章节模块";三档对比同一篇跑三个模型对照。
 ./financial/play-web.sh          # http://localhost:8088
-# (自动从全局 GLM 凭据注入 BANK_LLM_*;未配置则回退离线脚本)
+# (自动从 ~/.claude/settings.json 注入 GLM_* 与 DEEPSEEK_*;未配置的模型回退桩)
 
 # 主题/板块策略 CLI 演示(基金/债券通过 Web 演示):
 ./financial/play-research.sh "中国 TMT"          # 离线:情景库 + 脚本模型
