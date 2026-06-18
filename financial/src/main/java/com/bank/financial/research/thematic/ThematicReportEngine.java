@@ -5,7 +5,7 @@ import com.bank.financial.research.data.ThematicDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.thematic.agent.MacroIngestionAgent;
 import com.bank.financial.research.thematic.agent.SectorImpactAgent;
@@ -277,7 +277,7 @@ public final class ThematicReportEngine {
             sections.add(new ReportSection(id, ThematicBb.titleOf(id), body, order++));
         }
 
-        ResearchReport.Metadata metadata = new ResearchReport.Metadata(
+        ReportMetadata metadata = new ReportMetadata(
                 model.name(), dataSourceName, ctx.modelCalls(), criticRounds, "THEMATIC-SCORING",
                 gaps, notes, findings, ctx.degradations(), ctx.now());
         return new ThematicReport(theme, overallRating, overallScore, thesis, views, sections, metadata);

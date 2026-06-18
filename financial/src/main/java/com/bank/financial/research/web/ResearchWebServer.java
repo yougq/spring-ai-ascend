@@ -1,13 +1,8 @@
 package com.bank.financial.research.web;
 
-import com.bank.financial.research.data.DataIngestionService;
-import com.bank.financial.research.data.FreshnessPolicy;
-import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.FundDataSource;
 import com.bank.financial.research.data.eastmoney.EastMoneyFundDataSource;
-import com.bank.financial.research.data.eastmoney.EastMoneyResearchDataSource;
 import com.bank.financial.research.data.stub.StubFundDataSource;
-import com.bank.financial.research.data.tushare.TushareResearchDataSource;
 import com.bank.financial.research.ResearchReports;
 import com.bank.financial.research.bond.BondReport;
 import com.bank.financial.research.bond.BondReportEngine;
@@ -15,12 +10,9 @@ import com.bank.financial.research.data.stub.StubBondDataSource;
 import com.bank.financial.research.data.stub.StubThematicDataSource;
 import com.bank.financial.research.fund.FundReport;
 import com.bank.financial.research.fund.FundReportEngine;
-import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportBudget;
 import com.bank.financial.research.engine.ReportRequest;
-import com.bank.financial.research.engine.ResearchReport;
-import com.bank.financial.research.engine.ResearchReportEngine;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.thematic.ThematicReport;
 import com.bank.financial.research.thematic.ThematicReportEngine;
@@ -70,13 +62,6 @@ public final class ResearchWebServer {
     private static ExperienceStore webExp(String type) {
         return WEB_EXP.computeIfAbsent(type, k -> new InMemoryExperienceStore());
     }
-
-    private static final List<Map<String, String>> EQUITY_AGENTS = List.of(
-            Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
-            Map.of("role", "quant-model", "label", "建模"), Map.of("role", "valuation", "label", "估值"),
-            Map.of("role", "sector-macro", "label", "行业宏观"), Map.of("role", "lead-manager", "label", "首席"),
-            Map.of("role", "writer", "label", "撰写"), Map.of("role", "critic", "label", "评审"),
-            Map.of("role", "compliance", "label", "合规"));
 
     private static final List<Map<String, String>> FUND_AGENTS = List.of(
             Map.of("role", "planner", "label", "规划"), Map.of("role", "data", "label", "数据"),
@@ -146,9 +131,9 @@ public final class ResearchWebServer {
         OutputStream os = null;
         try {
             Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
-            String type = q.getOrDefault("type", "equity");
+            String type = q.getOrDefault("type", "fund");
             String source = q.getOrDefault("source", "eastmoney");
-            String ticker = orDefault(q.get("ticker"), "600519.SH");
+            String ticker = orDefault(q.get("ticker"), "110011");
             long pace = parseLong(q.get("pace"), 250L);
             // Model choice: "glm" = live LLM (real prose) when configured, else scripted.
             boolean wantLive = "glm".equals(q.getOrDefault("model", "glm"));
@@ -225,34 +210,6 @@ public final class ResearchWebServer {
                 report.put("modelCalls", tr.metadata().modelCalls());
                 report.put("criticRounds", tr.metadata().criticRounds());
                 report.put("degradations", tr.metadata().degradations().size());
-            } else if ("fund".equals(type)) {
-                send(out, "pipeline", Map.of("agents", FUND_AGENTS));
-                String code = orDefault(q.get("ticker"), "110011");
-                FundReport fr;
-                if ("stub".equals(source)) {
-                    fr = new FundReportEngine(new StubFundDataSource(now), rm,
-                            webExp(type), MemoryObserver.NOOP, () -> now)
-                            .generate(new ReportRequest(code, "EQUITY", "web", "zh-CN", now, budget), progress);
-                } else {
-                    try {
-                        fr = new FundReportEngine(new EastMoneyFundDataSource(now), rm,
-                                webExp(type), MemoryObserver.NOOP, () -> now)
-                                .generate(new ReportRequest(code, "EQUITY", "web", "zh-CN", now, budget), progress);
-                    } catch (RuntimeException fundErr) {
-                        sendNote(out, "实时基金数据获取失败(" + fundErr.getMessage() + "),回退桩数据演示。");
-                        fr = new FundReportEngine(new StubFundDataSource(now), rm,
-                                webExp(type), MemoryObserver.NOOP, () -> now)
-                                .generate(new ReportRequest("DEMOFUND", "EQUITY", "web", "zh-CN", now, budget), progress);
-                    }
-                }
-                report.put("html", MdHtml.render(fr.toMarkdown()));
-                report.put("rating", fr.overallRating());
-                report.put("metric1", "夏普 " + com.bank.financial.research.engine.Bb.fmt(fr.metrics().sharpe()));
-                report.put("metric2", "年化 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().annReturn()));
-                report.put("metric3", "回撤 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().maxDrawdown()));
-                report.put("modelCalls", fr.metadata().modelCalls());
-                report.put("criticRounds", fr.metadata().criticRounds());
-                report.put("degradations", fr.metadata().degradations().size());
             } else if ("bond".equals(type)) {
                 send(out, "pipeline", Map.of("agents", BOND_AGENTS));
                 String code = orDefault(q.get("ticker"), "DEMOBOND");
@@ -268,43 +225,37 @@ public final class ResearchWebServer {
                 report.put("criticRounds", br.metadata().criticRounds());
                 report.put("degradations", br.metadata().degradations().size());
             } else {
-                send(out, "pipeline", Map.of("agents", EQUITY_AGENTS));
-                ResearchDataSource src;
-                String token = System.getenv("TUSHARE_TOKEN");
-                switch (source) {
-                    case "stub" -> src = new StubResearchDataSource(now);
-                    case "tushare" -> {
-                        if (token != null && !token.isBlank()) {
-                            src = new TushareResearchDataSource(token, now);
-                        } else {
-                            sendNote(out, "Tushare 需积分(未配置 TUSHARE_TOKEN),演示回退桩数据。");
-                            src = new StubResearchDataSource(now);
-                        }
-                    }
-                    case "wind", "choice" -> {
-                        sendNote(out, "该源规划中(sidecar 网关),演示回退桩数据。");
-                        src = new StubResearchDataSource(now);
-                    }
-                    default -> src = new EastMoneyResearchDataSource(now);
+                // Fund / FOF — the default report type for this bank.
+                send(out, "pipeline", Map.of("agents", FUND_AGENTS));
+                String code = orDefault(q.get("ticker"), "110011");
+                FundDataSource fundSource = "stub".equals(source)
+                        ? new StubFundDataSource(now) : new EastMoneyFundDataSource(now);
+                String usedCode = code;
+                FundReport fr;
+                try {
+                    fr = new FundReportEngine(fundSource, rm, webExp(type), MemoryObserver.NOOP, () -> now)
+                            .generate(new ReportRequest(code, "FUND", "web", "zh-CN", now, budget), progress);
+                } catch (RuntimeException fundErr) {
+                    sendNote(out, "实时基金数据获取失败(" + fundErr.getMessage() + "),回退桩数据演示。");
+                    fundSource = new StubFundDataSource(now);
+                    usedCode = "DEMOFUND";
+                    fr = new FundReportEngine(fundSource, rm, webExp(type), MemoryObserver.NOOP, () -> now)
+                            .generate(new ReportRequest(usedCode, "FUND", "web", "zh-CN", now, budget), progress);
                 }
-                DataIngestionService ingestion = new DataIngestionService(src, FreshnessPolicy.days(90));
-                ResearchReportEngine engine = new ResearchReportEngine(
-                        ingestion, src.name(), rm, webExp(type), MemoryObserver.NOOP, () -> now);
-                ResearchReport r = engine.generate(new ReportRequest(ticker, "EQUITY", "web", "zh-CN", now, budget), progress);
-                report.put("html", MdHtml.render(r.toMarkdown()));
-                report.put("rating", r.rating());
-                report.put("metric1", "目标价 " + com.bank.financial.research.engine.Bb.fmt(r.priceTarget()));
-                report.put("metric2", "现价 " + com.bank.financial.research.engine.Bb.fmt(r.currentPrice()));
-                report.put("metric3", "空间 " + com.bank.financial.research.engine.Bb.pct(r.upsidePct()));
-                report.put("modelCalls", r.metadata().modelCalls());
-                report.put("criticRounds", r.metadata().criticRounds());
-                report.put("degradations", r.metadata().degradations().size());
+                report.put("html", MdHtml.render(fr.toMarkdown()));
+                report.put("rating", fr.overallRating());
+                report.put("metric1", "夏普 " + com.bank.financial.research.engine.Bb.fmt(fr.metrics().sharpe()));
+                report.put("metric2", "年化 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().annReturn()));
+                report.put("metric3", "回撤 " + com.bank.financial.research.engine.Bb.pct(fr.metrics().maxDrawdown()));
+                report.put("modelCalls", fr.metadata().modelCalls());
+                report.put("criticRounds", fr.metadata().criticRounds());
+                report.put("degradations", fr.metadata().degradations().size());
                 send(out, "report", report);
                 sendExperience(out, type);
-                // Optional A/B: same data + model through a naive single-model one-shot,
+                // Optional A/B: same NAV data + model through a naive single-model one-shot,
                 // scored side-by-side so the architectural difference is measured, not asserted.
                 if (compare) {
-                    runComparison(out, r, ingestion.assemble(ticker, 5, now), rm, usingLive);
+                    runComparison(out, fr, fundSource.load(usedCode, now), rm, usingLive);
                 }
                 send(out, "done", Map.of());
                 return;
@@ -355,9 +306,9 @@ public final class ResearchWebServer {
         }
     }
 
-    /** Run the single-model baseline on the same data and stream the comparison scorecard. */
-    private static void runComparison(OutputStream out, ResearchReport engineReport,
-            com.bank.financial.research.data.CompanyData.Dataset ds, ReportModel rm, boolean usingLive) {
+    /** Run the single-model baseline on the same NAV data and stream the comparison scorecard. */
+    private static void runComparison(OutputStream out, FundReport engineReport,
+            com.bank.financial.research.data.FundData.Dataset ds, ReportModel rm, boolean usingLive) {
         try {
             if (!usingLive) {
                 sendNote(out, "方法对比需真实模型(GLM)才有意义:离线脚本模型不会自行估算,单模型列仅作结构示意。");
@@ -563,7 +514,7 @@ public final class ResearchWebServer {
             <body>
             <header>
               <h1>研报生成 · 多智能体引擎</h1>
-              <div class="sub">个股 / 板块策略 / 基金 / 债券 · 专家智能体共享黑板协作 · GLM-5.2 真实文笔或离线脚本</div>
+              <div class="sub">基金 / 债券 / 板块策略 · 专家智能体共享黑板协作 · GLM-5.2 真实文笔或离线脚本</div>
             </header>
             <div class="wrap">
               <!-- LEFT: config -->
@@ -571,10 +522,9 @@ public final class ResearchWebServer {
                 <h2>配置</h2>
                 <div class="field">
                   <label>报告类型</label>
-                  <label class="opt"><input type="radio" name="type" value="equity" checked/> 个股研报</label>
-                  <label class="opt"><input type="radio" name="type" value="thematic"/> 行业主题 / 板块策略</label>
-                  <label class="opt"><input type="radio" name="type" value="fund"/> 基金 / FOF</label>
+                  <label class="opt"><input type="radio" name="type" value="fund" checked/> 基金 / FOF</label>
                   <label class="opt"><input type="radio" name="type" value="bond"/> 债券 / 固收</label>
+                  <label class="opt"><input type="radio" name="type" value="thematic"/> 行业主题 / 板块策略</label>
                 </div>
                 <div class="field">
                   <label>生成模型</label>
@@ -597,7 +547,7 @@ public final class ResearchWebServer {
                 </div>
                 <div class="field">
                   <label class="opt" id="cmpopt" title="同数据同模型,与单独用大模型一次性出稿对比打分">
-                    <input type="checkbox" id="compare"/> 方法对比:同时跑「单一大模型」并打分(仅个股)
+                    <input type="checkbox" id="compare"/> 方法对比:同时跑「单一大模型」并打分(仅基金)
                   </label>
                 </div>
                 <button id="go">生成研报</button>
@@ -657,18 +607,15 @@ public final class ResearchWebServer {
             <script>
             (function(){
               var SOURCES={
-                equity:[["eastmoney","东方财富(免费真实)"],["stub","桩(离线演示)"],
-                        ["tushare","Tushare(需积分)"],["wind","Wind(规划中)"],["choice","Choice(规划中)"]],
                 thematic:[["stub","情景库(宏观/板块敞口)"]],
                 fund:[["eastmoney","天天基金(免费真实)"],["stub","桩(离线演示)"]],
                 bond:[["stub","桩(离线演示)"]]
               };
-              var DEFTICK={equity:"600519.SH",thematic:"中国 TMT",fund:"110011",bond:"DEMOBOND"};
-              var HINT={equity:"真实 A 股用 6 位代码(如 600519.SH);桩演示用 DEMO",
-                        thematic:"输入主题/板块名(如 中国 TMT、半导体、新能源);走情景因子打分",
+              var DEFTICK={thematic:"中国 TMT",fund:"110011",bond:"DEMOBOND"};
+              var HINT={thematic:"输入主题/板块名(如 中国 TMT、半导体、新能源);走情景因子打分",
                         fund:"真实基金用 6 位代码(如 110011);桩演示任意",
                         bond:"债券为合成样例(免费实时债券数据难取);桩演示"};
-              var TICKLABEL={equity:"标的代码",thematic:"主题 / 板块",fund:"基金代码",bond:"债券"};
+              var TICKLABEL={thematic:"主题 / 板块",fund:"基金代码",bond:"债券"};
               function renderSources(){
                 var type=document.querySelector('input[name=type]:checked').value;
                 var box=document.getElementById('sources'); box.innerHTML='';
@@ -681,7 +628,7 @@ public final class ResearchWebServer {
                 document.getElementById('ticker').value=DEFTICK[type];
                 document.getElementById('tickhint').textContent=HINT[type];
                 document.getElementById('ticklabel').textContent=TICKLABEL[type]||'标的代码';
-                document.getElementById('cmpopt').style.display=(type==='equity')?'':'none';
+                document.getElementById('cmpopt').style.display=(type==='fund')?'':'none';
               }
               Array.prototype.forEach.call(document.querySelectorAll('input[name=type]'),function(r){
                 r.addEventListener('change',renderSources);
@@ -835,7 +782,7 @@ public final class ResearchWebServer {
                 var type=document.querySelector('input[name=type]:checked').value;
                 var source=document.querySelector('input[name=source]:checked').value;
                 var model=document.querySelector('input[name=model]:checked').value;
-                var compare=(type==='equity'&&document.getElementById('compare').checked)?'1':'0';
+                var compare=(type==='fund'&&document.getElementById('compare').checked)?'1':'0';
                 var ticker=encodeURIComponent(document.getElementById('ticker').value||'');
                 es=new EventSource('/api/run?type='+type+'&source='+source+'&model='+model+
                   '&compare='+compare+'&ticker='+ticker+'&pace='+pace.value);

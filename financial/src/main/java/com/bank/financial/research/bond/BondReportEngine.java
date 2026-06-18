@@ -13,7 +13,7 @@ import com.bank.financial.research.data.BondDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import com.bank.financial.research.model.ReportModel;
 import com.huawei.ascend.a2a.memory.experience.CollaborationSignature;
 import com.huawei.ascend.a2a.memory.experience.ExperienceMemoryKit;
@@ -253,7 +253,7 @@ public final class BondReportEngine {
             sections.add(new ReportSection(id, BondBb.titleOf(id), body, order++));
         }
 
-        ResearchReport.Metadata metadata = new ResearchReport.Metadata(
+        ReportMetadata metadata = new ReportMetadata(
                 model.name(), source.name(), ctx.modelCalls(), criticRounds, "BOND-ANALYTICS",
                 ds.freshnessWarnings(), notes, findings, ctx.degradations(), ctx.now());
         return new BondReport(ds.code(), ds.name(), ds.issuer(), ds.rating(), stance, thesis, metrics, sections, metadata);

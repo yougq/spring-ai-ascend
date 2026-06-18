@@ -2,17 +2,17 @@ package com.bank.financial.research.thematic;
 
 import com.bank.financial.research.engine.Bb;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import java.util.List;
 
 /**
  * A finished thematic / sector-strategy report: the overall sector stance, the
  * thesis, the per-sub-sector ratings, ordered sections, and run metadata.
- * Reuses {@link ReportSection} and {@link ResearchReport.Metadata}.
+ * Reuses {@link ReportSection} and {@link ReportMetadata}.
  */
 public record ThematicReport(
         String theme, String overallRating, double overallScore, String thesis,
-        List<SubSectorView> subSectors, List<ReportSection> sections, ResearchReport.Metadata metadata) {
+        List<SubSectorView> subSectors, List<ReportSection> sections, ReportMetadata metadata) {
 
     public ThematicReport {
         subSectors = List.copyOf(subSectors);

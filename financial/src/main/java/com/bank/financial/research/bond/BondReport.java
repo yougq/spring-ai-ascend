@@ -2,13 +2,13 @@ package com.bank.financial.research.bond;
 
 import com.bank.financial.research.engine.Bb;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import java.util.List;
 
-/** A finished bond / fixed-income research report. Reuses {@link ReportSection} + {@link ResearchReport.Metadata}. */
+/** A finished bond / fixed-income research report. Reuses {@link ReportSection} + {@link ReportMetadata}. */
 public record BondReport(
         String code, String name, String issuer, String rating, String stance, String thesis,
-        Metrics metrics, List<ReportSection> sections, ResearchReport.Metadata metadata) {
+        Metrics metrics, List<ReportSection> sections, ReportMetadata metadata) {
 
     public BondReport {
         sections = List.copyOf(sections);

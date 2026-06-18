@@ -3,7 +3,7 @@ package com.bank.financial.research.data.eastmoney;
 import com.bank.financial.research.data.FundData;
 import com.bank.financial.research.data.FundDataSource;
 import com.bank.financial.research.data.Provenance;
-import com.bank.financial.research.data.ResearchDataSource;
+import com.bank.financial.research.data.DataUnavailableException;
 import com.bank.financial.research.data.SourceType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,11 +59,11 @@ public final class EastMoneyFundDataSource implements FundDataSource {
     public FundData.Dataset load(String fundCode, long asOf) {
         String code = fundCode == null ? "" : fundCode.trim();
         if (!code.matches("\\d{6}")) {
-            throw new ResearchDataSource.DataUnavailableException("not a fund code: " + fundCode);
+            throw new DataUnavailableException("not a fund code: " + fundCode);
         }
         List<Double> navs = navHistory(code);
         if (navs.size() < 2) {
-            throw new ResearchDataSource.DataUnavailableException("insufficient NAV history for " + code);
+            throw new DataUnavailableException("insufficient NAV history for " + code);
         }
         String name = fundName(code, "基金 " + code);
         return new FundData.Dataset(
@@ -89,7 +89,7 @@ public final class EastMoneyFundDataSource implements FundDataSource {
                         .header("Accept", "application/json").GET().build();
                 HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
                 if (resp.statusCode() != 200) {
-                    throw new ResearchDataSource.DataUnavailableException("lsjz HTTP " + resp.statusCode());
+                    throw new DataUnavailableException("lsjz HTTP " + resp.statusCode());
                 }
                 JsonNode list = json.readTree(resp.body()).path("Data").path("LSJZList");
                 if (!list.isArray() || list.isEmpty()) {
@@ -107,10 +107,10 @@ public final class EastMoneyFundDataSource implements FundDataSource {
                     break; // last (partial) page reached
                 }
             }
-        } catch (ResearchDataSource.DataUnavailableException e) {
+        } catch (DataUnavailableException e) {
             throw e;
         } catch (Exception e) {
-            throw new ResearchDataSource.DataUnavailableException("lsjz error: " + e.getClass().getSimpleName());
+            throw new DataUnavailableException("lsjz error: " + e.getClass().getSimpleName());
         }
         Collections.reverse(navs); // oldest-first
         return navs;

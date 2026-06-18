@@ -5,7 +5,7 @@ import com.bank.financial.research.data.FundDataSource;
 import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import com.bank.financial.research.fund.agent.FundComplianceAgent;
 import com.bank.financial.research.fund.agent.FundCriticAgent;
 import com.bank.financial.research.fund.agent.FundPlannerAgent;
@@ -259,7 +259,7 @@ public final class FundReportEngine {
             sections.add(new ReportSection(id, FundBb.titleOf(id), body, order++));
         }
 
-        ResearchReport.Metadata metadata = new ResearchReport.Metadata(
+        ReportMetadata metadata = new ReportMetadata(
                 model.name(), source.name(), ctx.modelCalls(), criticRounds, "FUND-ANALYTICS",
                 ds.freshnessWarnings(), notes, findings, ctx.degradations(), ctx.now());
         return new FundReport(ds.code(), ds.name(), ds.type(), rating, thesis, metrics, sections, metadata);

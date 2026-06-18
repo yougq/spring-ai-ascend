@@ -2,8 +2,8 @@ package com.bank.financial.research.web;
 
 /**
  * A deliberately tiny Markdown→HTML renderer for the web playground preview. It
- * covers exactly what {@link com.bank.financial.research.engine.ResearchReport#toMarkdown()}
- * emits — ATX headings, bold spans, dash/star bullet lists, horizontal rules,
+ * covers exactly what the report types' {@code toMarkdown()} emits — ATX headings,
+ * bold spans, dash/star bullet lists, horizontal rules,
  * blank-line paragraphs — and HTML-escapes everything else so report text can
  * never inject markup. No third-party dependency: the playground is meant to run
  * from a single offline classpath.

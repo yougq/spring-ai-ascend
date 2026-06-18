@@ -1,23 +1,17 @@
 package com.bank.financial.research;
 
 import com.bank.financial.kit.ModelConnection;
-import com.bank.financial.research.data.DataIngestionService;
-import com.bank.financial.research.data.FreshnessPolicy;
-import com.bank.financial.research.data.ResearchDataSource;
-import com.bank.financial.research.data.http.HttpResearchDataSource;
+import com.bank.financial.research.bond.BondReportEngine;
 import com.bank.financial.research.data.stub.StubBondDataSource;
 import com.bank.financial.research.data.stub.StubFundDataSource;
-import com.bank.financial.research.data.stub.StubResearchDataSource;
 import com.bank.financial.research.data.stub.StubThematicDataSource;
-import com.bank.financial.research.bond.BondReportEngine;
-import com.bank.financial.research.engine.ResearchReportEngine;
 import com.bank.financial.research.fund.FundReportEngine;
-import com.bank.financial.research.thematic.ThematicReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
 import com.bank.financial.research.model.RetryReportModel;
 import com.bank.financial.research.model.ScriptedReportModel;
 import com.bank.financial.research.model.TimeoutReportModel;
+import com.bank.financial.research.thematic.ThematicReportEngine;
 import com.huawei.ascend.a2a.memory.obs.CompositeMemoryObserver;
 import com.huawei.ascend.a2a.memory.obs.MemoryObserver;
 import com.huawei.ascend.a2a.memory.obs.MicrometerMemoryObserver;
@@ -25,50 +19,15 @@ import com.huawei.ascend.a2a.memory.obs.Slf4jMemoryObserver;
 import java.time.Duration;
 
 /**
- * Wiring factory for the research-report engine. Two presets:
- * <ul>
- *   <li>{@link #offline(long)} — stub data + scripted model: deterministic, no
- *       network, no API key. Used by tests and the {@code --mock} playground.</li>
- *   <li>{@link #fromEnv(long)} — production wiring driven by env vars: an HTTP
- *       data gateway ({@code RESEARCH_DATA_BASE_URL}) when set (else the stub),
- *       and a real LLM ({@code RESEARCH_REPORT_LIVE_MODEL=true}, via BANK_LLM_*)
- *       when enabled (else the scripted model).</li>
- * </ul>
+ * Wiring factory for the research-report engines. The bank's product set is
+ * fund / FOF, fixed income (bonds), and sector-strategy (thematic) — there is no
+ * single-stock equity coverage. Offline presets use stub data + the scripted
+ * model (deterministic, no network, no key); the live model is env-driven
+ * (BANK_LLM_*) and enabled per call.
  */
 public final class ResearchReports {
 
     private ResearchReports() {
-    }
-
-    /** Fully offline, deterministic engine (stub data + scripted model). */
-    public static ResearchReportEngine offline(long asOfEpochMs) {
-        ResearchDataSource source = new StubResearchDataSource(asOfEpochMs);
-        DataIngestionService ingestion = new DataIngestionService(source, FreshnessPolicy.days(90));
-        return new ResearchReportEngine(
-                ingestion, source.name(), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
-    }
-
-    /** Production wiring from environment variables (falls back to offline pieces). */
-    public static ResearchReportEngine fromEnv(long asOfEpochMs) {
-        ResearchDataSource source = dataSourceFromEnv(asOfEpochMs);
-        DataIngestionService ingestion = new DataIngestionService(source, FreshnessPolicy.days(envInt("RESEARCH_FRESHNESS_DAYS", 90)));
-        // Live model = retry(timeout(llm)): hard per-call timeout so a stuck LLM can't
-        // hang a run, wrapped in bounded backoff retry for transient connect/rate errors.
-        ReportModel model = liveModel() ? liveModel(ModelConnection.forTier("smart")) : new ScriptedReportModel();
-        // One instrumentation surface: routine ops via Slf4j (DEBUG), metrics via Micrometer.
-        MemoryObserver observer = CompositeMemoryObserver.of(
-                new Slf4jMemoryObserver(false), new MicrometerMemoryObserver());
-        return new ResearchReportEngine(ingestion, source.name(), model, null, observer, null);
-    }
-
-    private static ResearchDataSource dataSourceFromEnv(long asOfEpochMs) {
-        String base = System.getenv("RESEARCH_DATA_BASE_URL");
-        if (base != null && !base.isBlank()) {
-            return new HttpResearchDataSource(
-                    base, Duration.ofSeconds(3), Duration.ofSeconds(envInt("RESEARCH_DATA_TIMEOUT_S", 8)),
-                    System.getenv("RESEARCH_DATA_TOKEN"), asOfEpochMs);
-        }
-        return new StubResearchDataSource(asOfEpochMs);
     }
 
     // ── Thematic / sector-strategy engine ─────────────────────────────────────
@@ -87,15 +46,6 @@ public final class ResearchReports {
                 CompositeMemoryObserver.of(new Slf4jMemoryObserver(false), new MicrometerMemoryObserver()), null);
     }
 
-    /** Production live model: retry(timeout(openJiuwen)) — bounded latency + transient-failure backoff. */
-    private static ReportModel liveModel(ModelConnection conn) {
-        return new RetryReportModel(
-                new TimeoutReportModel(new OpenJiuwenReportModel(conn),
-                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60))),
-                envInt("RESEARCH_MODEL_RETRIES", 3),
-                envInt("RESEARCH_MODEL_BACKOFF_MS", 1500));
-    }
-
     // ── Fund / FOF engine ─────────────────────────────────────────────────────
 
     /** Fully offline fund engine (synthetic NAV stub + scripted model). */
@@ -110,6 +60,17 @@ public final class ResearchReports {
     public static BondReportEngine bondOffline(long asOfEpochMs) {
         return new BondReportEngine(
                 new StubBondDataSource(asOfEpochMs), new ScriptedReportModel(), null, MemoryObserver.NOOP, null);
+    }
+
+    // ── Model wiring ──────────────────────────────────────────────────────────
+
+    /** Production live model: retry(timeout(openJiuwen)) — bounded latency + transient-failure backoff. */
+    private static ReportModel liveModel(ModelConnection conn) {
+        return new RetryReportModel(
+                new TimeoutReportModel(new OpenJiuwenReportModel(conn),
+                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60))),
+                envInt("RESEARCH_MODEL_RETRIES", 3),
+                envInt("RESEARCH_MODEL_BACKOFF_MS", 1500));
     }
 
     static boolean liveModel() {
@@ -131,18 +92,16 @@ public final class ResearchReports {
     /**
      * Model for the single-model comparison baseline. Unlike the engine — which makes
      * many small, individually-bounded per-section calls — the baseline asks for the
-     * whole report in one shot, so it needs a much longer per-call timeout and a larger
-     * token budget. (That the monolithic call is slow and hard to bound is itself part
-     * of the contrast.) Returns the scripted model when no live endpoint is configured.
+     * whole report in one shot, so it needs a larger token budget and a longer
+     * per-call timeout. (That the monolithic call is slow and hard to bound is itself
+     * part of the contrast.) Returns the scripted model when no live endpoint is set.
      */
     public static ReportModel baselineModel(boolean live) {
         if (live && glmConfigured()) {
             // maxTokens must leave room for a reasoning model's ~500 reasoning tokens AND
-            // the content (too small → empty content), so keep it at the engine's 4096;
-            // the prose stays one-page via the prompt, so wall-time matches a section and
-            // returns within the runtime's request timeout. (The engine decomposes into many
-            // such bounded calls precisely because one mega-call is impractical — part of
-            // what the comparison shows.)
+            // the content (too small → empty content); the prose stays one-page via the
+            // prompt, so wall-time matches a section and returns within the runtime's
+            // request timeout.
             return new RetryReportModel(
                     new TimeoutReportModel(
                             new OpenJiuwenReportModel(ModelConnection.forTier("smart"),

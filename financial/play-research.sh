@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Research-report engine demo — runs the full multi-agent pipeline end-to-end
-# and prints the finished Markdown report.
-#   ./financial/play-research.sh <ticker> [--real]
-# Examples:
-#   ./financial/play-research.sh DEMO            # offline: stub data + scripted model (no API key)
-#   ./financial/play-research.sh DEMO --real     # env-driven (BANK_LLM_*, RESEARCH_DATA_BASE_URL, RESEARCH_REPORT_LIVE_MODEL)
+# Research-report engine CLI demo — runs the thematic / sector-strategy pipeline
+# end-to-end and prints the finished Markdown report. (Fund / bond reports are
+# demoed via the web playground: ./financial/play-web.sh)
+#   ./financial/play-research.sh "中国 TMT"          # offline: scenario stub + scripted model
+#   ./financial/play-research.sh "中国 TMT" --real    # env-driven live model (BANK_LLM_*, RESEARCH_REPORT_LIVE_MODEL)
 set -euo pipefail
 
 : "${JAVA_HOME:=/Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home}"
@@ -13,13 +12,10 @@ export JAVA_HOME
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# --thematic routes to the sector-strategy engine; default is the single-stock equity engine.
-MAIN=com.bank.financial.research.ResearchReportPlayground
-ARGS="$*"
-if [[ " $* " == *" --thematic "* ]]; then
-  MAIN=com.bank.financial.research.ResearchReportPlaygroundThematic
-  ARGS="${ARGS/--thematic/}"
-fi
+# The bank's product set has no single-stock equity coverage; the CLI demo runs the
+# sector-strategy (thematic) engine. (--thematic kept as a no-op alias for compat.)
+MAIN=com.bank.financial.research.ResearchReportPlaygroundThematic
+ARGS="${*/--thematic/}"
 
 # Filter the framework's own INFO/timestamped log chatter so only the report shows.
 ./mvnw -q -o -f financial/pom.xml \

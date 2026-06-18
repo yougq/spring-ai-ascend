@@ -2,13 +2,13 @@ package com.bank.financial.research.fund;
 
 import com.bank.financial.research.engine.Bb;
 import com.bank.financial.research.engine.ReportSection;
-import com.bank.financial.research.engine.ResearchReport;
+import com.bank.financial.research.engine.ReportMetadata;
 import java.util.List;
 
-/** A finished fund / FOF research report. Reuses {@link ReportSection} + {@link ResearchReport.Metadata}. */
+/** A finished fund / FOF research report. Reuses {@link ReportSection} + {@link ReportMetadata}. */
 public record FundReport(
         String code, String name, String type, String overallRating, String thesis,
-        Metrics metrics, List<ReportSection> sections, ResearchReport.Metadata metadata) {
+        Metrics metrics, List<ReportSection> sections, ReportMetadata metadata) {
 
     public FundReport {
         sections = List.copyOf(sections);

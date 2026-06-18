@@ -1,71 +1,52 @@
 package com.bank.financial.research.eval;
 
-import com.bank.financial.research.data.CompanyData;
+import com.bank.financial.research.data.FundData;
 import com.bank.financial.research.engine.Bb;
 import com.bank.financial.research.model.ReportModel;
 
 /**
- * The "just prompt one big model" baseline: hand the model the same raw data the
- * engine's agents collectively have, and ask it — in a single call, with no
- * blackboard, no deterministic calc, no independent critic, no compliance agent —
- * to produce the whole report including the rating, target price and valuation it
- * computes itself. This is the honest representative of "为什么不直接用大模型",
- * scored against the engine by {@link MethodComparison}.
+ * The "just prompt one big model" baseline for a fund report: hand the model the
+ * same raw NAV series the engine's agents work from, and ask it — in a single
+ * call, with no blackboard, no deterministic {@code FundCalc}, no independent
+ * critic, no compliance agent — to produce the whole report including the
+ * return/volatility/Sharpe/drawdown it computes itself. This is the honest
+ * representative of "为什么不直接用大模型", scored against the engine by
+ * {@link MethodComparison}.
  *
- * <p>The instruction deliberately does NOT impose the grounding discipline the
- * engine's roles carry (see the {@code baseline} branch in the live model's role
- * prompt): the whole point is to observe what an undisciplined single call does
- * with the numbers.
+ * <p>The instruction deliberately does NOT impose grounding discipline (the live
+ * model's {@code baseline} role gets a plain system prompt): the whole point is to
+ * observe what an undisciplined single call does with the numbers.
  */
 public final class SingleModelBaseline {
 
     private SingleModelBaseline() {
     }
 
-    /** Generate a one-shot baseline report (one model call) from the dataset. */
-    public static String generate(CompanyData.Dataset ds, ReportModel model) {
+    /** Generate a one-shot baseline fund report (one model call) from the NAV dataset. */
+    public static String generate(FundData.Dataset ds, ReportModel model) {
         String brief = digest(ds);
         String instruction =
-                "你是一名卖方股票分析师。请仅凭下列原始数据,一次性撰写一份简明而完整的个股研究报告(控制在约 800 字以内),"
-                + "需包含:投资评级、目标价、DCF 每股内在价值、可比公司估值、盈利预测要点、情景与风险、"
-                + "以及必要的合规披露。请自行完成全部估值计算与推导,直接给出结论数字。";
+                "你是一名基金分析师。请仅凭下列净值数据,一次性撰写一份简明而完整的基金研究报告(约 800 字以内),"
+                + "需包含:综合评级、累计收益、年化收益、年化波动、夏普比率、最大回撤、适配人群,以及必要的合规披露。"
+                + "请自行从净值序列计算各项指标,直接给出结论数字。";
         return model.generate(new ReportModel.ModelTask("baseline", instruction, brief, 1600));
     }
 
-    /** A compact raw-data digest — the inputs, not any computed conclusion. */
-    private static String digest(CompanyData.Dataset ds) {
+    /** A compact raw-data digest — the NAV inputs, not any computed conclusion. */
+    private static String digest(FundData.Dataset ds) {
         StringBuilder sb = new StringBuilder();
-        if (ds.hasFundamentals()) {
-            CompanyData.Fundamentals f = ds.fundamentals();
-            sb.append("公司: ").append(f.company()).append(" (").append(f.ticker()).append("),币种 ").append(f.currency()).append('\n');
-            sb.append("营收: ").append(Bb.fmt(f.revenue())).append("、EBITDA: ").append(Bb.fmt(f.ebitda()))
-                    .append("、EPS: ").append(Bb.fmt(f.eps())).append("、基期自由现金流: ").append(Bb.fmt(f.fcfBase())).append('\n');
-            sb.append("净负债: ").append(Bb.fmt(f.netDebt())).append("、少数股东权益: ").append(Bb.fmt(f.minorityInterest()))
-                    .append("、稀释股本: ").append(Bb.fmt(f.dilutedShares())).append('\n');
-            sb.append("增量利润率: ").append(Bb.fmt(f.incrementalMargin())).append("、税率: ").append(Bb.fmt(f.taxRate())).append('\n');
-            if (!f.revenueHistory().isEmpty()) {
-                sb.append("历史营收: ").append(f.revenueHistory()).append('\n');
-            }
+        sb.append("基金: ").append(ds.name()).append(" (").append(ds.code()).append("),类型 ").append(ds.type()).append('\n');
+        var navs = ds.navs();
+        sb.append("净值样本数: ").append(navs.size());
+        if (!navs.isEmpty()) {
+            sb.append(",期初 ").append(Bb.fmt(navs.get(0))).append(",期末 ").append(Bb.fmt(navs.get(navs.size() - 1)));
         }
-        if (ds.hasMarket()) {
-            sb.append("现价: ").append(Bb.fmt(ds.market().price()))
-                    .append("、52周区间: ").append(Bb.fmt(ds.market().low52w())).append("~").append(Bb.fmt(ds.market().high52w())).append('\n');
-        }
-        if (ds.hasConsensus()) {
-            CompanyData.Consensus c = ds.consensus();
-            sb.append("一致预期 EPS: ").append(Bb.fmt(c.epsMean())).append("、一致目标价: ").append(Bb.fmt(c.priceTargetMean()))
-                    .append("、买/持/卖: ").append(c.buys()).append('/').append(c.holds()).append('/').append(c.sells()).append('\n');
-        }
-        if (ds.hasPeers()) {
-            CompanyData.PeerSet p = ds.peers();
-            sb.append("可比倍数(中位): EV/EBITDA ").append(Bb.fmt(p.evEbitda()))
-                    .append("、EV/Sales ").append(Bb.fmt(p.evSales())).append("、P/E ").append(Bb.fmt(p.priceEarnings())).append('\n');
-        }
-        for (CompanyData.MacroIndicator m : ds.macro()) {
-            sb.append("宏观: ").append(m.name()).append(' ').append(Bb.fmt(m.value())).append(m.unit()).append('\n');
-        }
-        for (CompanyData.TextItem n : ds.news()) {
-            sb.append("资讯: ").append(n.title()).append(" — ").append(n.body()).append('\n');
+        sb.append('\n');
+        sb.append("年化期数: ").append(Bb.fmt(ds.periodsPerYear()))
+                .append(",无风险利率 ").append(Bb.pct(ds.riskFreeRate())).append('\n');
+        sb.append("净值序列(累计净值): ").append(navs).append('\n');
+        if (ds.hasBenchmark() && !ds.benchmark().isEmpty()) {
+            sb.append("基准序列: ").append(ds.benchmark()).append('\n');
         }
         return sb.toString();
     }
