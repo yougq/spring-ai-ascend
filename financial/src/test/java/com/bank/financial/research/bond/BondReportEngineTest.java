@@ -17,7 +17,7 @@ class BondReportEngineTest {
     private static final long AS_OF = 1_750_000_000_000L;
 
     private BondReport run() {
-        return ResearchReports.bondOffline(AS_OF).generate(ReportRequest.equity("DEMOBOND", "t-test", AS_OF));
+        return ResearchReports.bondOffline(AS_OF).generate(ReportRequest.of("DEMOBOND", "t-test", AS_OF));
     }
 
     @Test
@@ -66,7 +66,7 @@ class BondReportEngineTest {
         };
         BondReport r = new BondReportEngine(
                 new StubBondDataSource(AS_OF), throwing, null, MemoryObserver.NOOP, () -> AS_OF)
-                .generate(ReportRequest.equity("DEMOBOND", "t-test", AS_OF));
+                .generate(ReportRequest.of("DEMOBOND", "t-test", AS_OF));
         assertTrue(r.sections().size() >= 4);
         assertTrue(r.metrics().ytm() > 0, "computed metrics survive a model outage");
         assertFalse(r.metadata().degradations().isEmpty());

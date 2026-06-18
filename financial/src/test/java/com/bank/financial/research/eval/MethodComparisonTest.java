@@ -18,7 +18,7 @@ class MethodComparisonTest {
     private static final long AS_OF = 1_750_000_000_000L;
 
     private FundReport engineReport() {
-        return ResearchReports.fundOffline(AS_OF).generate(ReportRequest.equity("DEMOFUND", "t-test", AS_OF));
+        return ResearchReports.fundOffline(AS_OF).generate(ReportRequest.of("DEMOFUND", "t-test", AS_OF));
     }
 
     @Test

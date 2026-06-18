@@ -17,7 +17,7 @@ class FundReportEngineTest {
     private static final long AS_OF = 1_750_000_000_000L;
 
     private FundReport run() {
-        return ResearchReports.fundOffline(AS_OF).generate(ReportRequest.equity("DEMOFUND", "t-test", AS_OF));
+        return ResearchReports.fundOffline(AS_OF).generate(ReportRequest.of("DEMOFUND", "t-test", AS_OF));
     }
 
     @Test
@@ -70,7 +70,7 @@ class FundReportEngineTest {
         };
         FundReportEngine engine = new FundReportEngine(
                 new StubFundDataSource(AS_OF), throwing, null, MemoryObserver.NOOP, () -> AS_OF);
-        FundReport r = engine.generate(ReportRequest.equity("DEMOFUND", "t-test", AS_OF));
+        FundReport r = engine.generate(ReportRequest.of("DEMOFUND", "t-test", AS_OF));
         assertEquals(4, r.sections().size());
         assertTrue(r.metrics().cumReturn() > 0, "computed metrics survive a model outage");
         assertFalse(r.metadata().degradations().isEmpty());
